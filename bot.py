@@ -5,6 +5,8 @@ import asyncio
 import hashlib
 import random
 from typing import List, Dict, Any, Optional
+from aiohttp import web
+
 
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -559,12 +561,40 @@ async def finish_lesson(call: CallbackQuery, state: FSMContext):
         return
     await call.message.answer(f"Вы завершили тему: {topic}\nЧто дальше?", reply_markup=main_menu())
 
-# ----------------- Run -----------------
+# ---- простой HTTP-сервер для Render ----
+async def run_webserver():
+    app = web.Application()
+    async def health(request):
+        return web.Response(text="ok")
+    app.add_routes([web.get("/", health), web.get("/health", health)])
+    runner = web.AppRunner(app)
+    await runner.setup()
+    port = int(os.environ.get("PORT", os.environ.get("RENDER_PORT", 8000)))
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
+    print(f"Web server started on 0.0.0.0:{port}")
+    # держим задачу живой
+    while True:
+        await asyncio.sleep(3600)
+
+# ---- объединяем polling и http-сrv ----
 async def main():
-    print("ExplainlyStudy — полный рабочий MVP запущен")
-    await dp.start_polling(bot)
+    print("ExplainlyStudy — запускаем webserver и polling")
+    web_task = asyncio.create_task(run_webserver())
+    polling_task = asyncio.create_task(dp.start_polling(bot))
+    # если любая из задач завершится с ошибкой — поднимем исключение
+    done, pending = await asyncio.wait(
+        [web_task, polling_task],
+        return_when=asyncio.FIRST_EXCEPTION,
+    )
+    for t in pending:
+        t.cancel()
+    for t in done:
+        if t.exception():
+            raise t.exception()
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 # Запуск: python bot.py
 # Установка зависимостей: pip install -r requirements.txt

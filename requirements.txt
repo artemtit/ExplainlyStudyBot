@@ -2,6 +2,7 @@ aiogram>=3.0.0
 openai>=2.0.0
 python-dotenv>=1.0.0
 supabase>=2.4.0
+aiohttp>=3.8.0
 
 # python bot.py
 # pip install -r requirements.txt
