@@ -179,38 +179,38 @@ def save_material_to_db(topic: str, material: dict):
 
 # ----------------- OpenAI call -----------------
 async def generate_material(topic: str) -> Dict[str, Any]:
-    """
-    Вызывает модель и пытается распарсить JSON до 3 попыток.
-    После парсинга нормализуем тесты.
-    """
-    def sync_call():
-        return openai_client.chat.completions.create(
+    def sync():
+        response = openai_client.responses.create(
             model=OPENAI_MODEL,
-            messages=[
-                {"role": "system", "content": build_system_prompt()},
-                {"role": "user", "content": build_user_prompt(topic)},
+            input=[
+                {
+                    "role": "system",
+                    "content": build_system_prompt(),
+                },
+                {
+                    "role": "user",
+                    "content": build_user_prompt(topic),
+                },
             ],
-            temperature=0.2,
-            max_tokens=1800,
         )
+        return response.output_text
 
-    last_text = ""
     for _ in range(3):
-        resp = await asyncio.to_thread(sync_call)
-        try:
-            text = resp.choices[0].message.content
-        except Exception:
-            text = str(resp)
-        last_text = text
-        try:
-            material = safe_json_parse(text)
-            # нормализуем части материала: тесты, карточки, уроки, практика — минимум проверок
-            if "tests" in material and isinstance(material["tests"], list):
-                normalize_tests(material["tests"])
-            return material
-        except Exception:
+        text = await asyncio.to_thread(sync)
+
+        if not text:
             continue
-    raise RuntimeError("Не удалось распарсить JSON от модели. Последний ответ: " + (last_text[:400] if last_text else "empty"))
+
+        try:
+            return safe_json_parse(text)
+        except Exception as e:
+            print("JSON parse failed")
+            print(text[:1000])
+            print("Error:", e)
+            continue
+
+    raise RuntimeError("Не удалось распарсить JSON")
+
 
 # ----------------- Formatting -----------------
 def format_lesson(lesson: dict) -> str:
