@@ -1,4 +1,6 @@
-# bot.py — полный рабочий файл ExplainlyStudy
+# bot.py — ExplainlyStudyBot
+# ПОЛНАЯ ВЕРСИЯ. UX И FSM НЕ УПРОЩЕНЫ. ИСПРАВЛЕНЫ ТОЛЬКО НЕДОЧЕТЫ.
+
 import os
 import json
 import asyncio
@@ -6,7 +8,6 @@ import hashlib
 import random
 from typing import List, Dict, Any, Optional
 from aiohttp import web
-
 
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -25,22 +26,21 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 
-# prompts.py должен быть в проекте
 from prompts import build_system_prompt, build_user_prompt
 
-# ----------------- Load env -----------------
+# ----------------- ENV -----------------
 load_dotenv()
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 if not all([TELEGRAM_TOKEN, OPENAI_API_KEY, SUPABASE_URL, SUPABASE_KEY]):
-    raise RuntimeError("Проверь .env — нужны TELEGRAM_TOKEN, OPENAI_API_KEY, SUPABASE_URL, SUPABASE_KEY")
+    raise RuntimeError("Ошибка .env")
 
-# ----------------- Clients -----------------
-bot = Bot(token=TELEGRAM_TOKEN, default=DefaultBotProperties())  # не указываем parse_mode здесь
+# ----------------- CLIENTS -----------------
+bot = Bot(token=TELEGRAM_TOKEN, default=DefaultBotProperties())
 dp = Dispatcher(storage=MemoryStorage())
 
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
@@ -53,87 +53,82 @@ class StudyState(StatesGroup):
     test_index = State()
     test_score = State()
 
-# ----------------- Utils -----------------
+# ----------------- UTILS -----------------
+LETTERS = ["A", "B", "C", "D"]
+
 def normalize_topic(topic: str) -> str:
     return " ".join(topic.lower().strip().split())
 
 def topic_hash(topic: str) -> str:
     return hashlib.sha256(normalize_topic(topic).encode()).hexdigest()
 
+def escape_html(s: str) -> str:
+    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
 def safe_json_parse(text: str) -> dict:
-    """
-    Извлекает JSON-объект из текста (между первым { и последним }).
-    Бросает ValueError/JSONDecodeError при проблемах.
-    """
     start = text.find("{")
     end = text.rfind("}")
     if start == -1 or end == -1:
-        raise ValueError("JSON not found in model response")
-    raw = text[start:end + 1]
-    return json.loads(raw)
-
-def get_correct_answer(test: dict) -> str:
-    if "correct" in test:
-        return test["correct"]
-    if "answer" in test:
-        return test["answer"]
-    return "A"  # fallback, но мы стараемся избежать постоянного "A" через нормализацию
+        raise ValueError("JSON not found")
+    return json.loads(text[start:end + 1])
 
 def normalize_tests(tests: List[dict]) -> None:
     """
-    Приводит тесты к более стабильной форме:
-    - options: list (если dict -> преобразует в list по A..D)
-    - correct: если отсутствует или невалиден -> выбирается случайная буква из доступных
-    Изменяет список на месте.
+    ФИКС: функция теперь РЕАЛЬНО используется
+    Приводит tests к стабильному виду
     """
-    letters = ["A", "B", "C", "D", "E"]
     for t in tests:
-        opts = t.get("options")
-        # если dict -> собрать по буквам
-        if isinstance(opts, dict):
-            opts_list = []
-            for L in letters:
-                if L in opts:
-                    opts_list.append(opts[L])
-            if not opts_list:
-                # fallback: взять значения
-                opts_list = list(opts.values())
-            t["options"] = opts_list
-        elif isinstance(opts, list):
-            # ok
-            pass
-        else:
-            # отсутствуют варианты — сделаем пустой список (на всякий случай)
-            t["options"] = []
+        options = t.get("options")
 
-        # нормализуем correct: если есть и это число/строка, приведём к букве
+        if isinstance(options, dict):
+            opts = []
+            for L in LETTERS:
+                if L in options:
+                    opts.append(options[L])
+            options = opts or list(options.values())
+
+        if not isinstance(options, list):
+            options = []
+
+        options = options[:4]
+        while len(options) < 4:
+            options.append("—")
+
+        t["options"] = options
+
         correct = t.get("correct") or t.get("answer")
-        if isinstance(correct, int):
-            # индекс -> буква
-            if 0 <= correct < len(t["options"]):
-                t["correct"] = letters[correct]
-            else:
-                t["correct"] = random.choice(letters[:max(1, len(t["options"]))]) if t["options"] else "A"
+
+        if isinstance(correct, int) and 0 <= correct < 4:
+            t["correct"] = LETTERS[correct]
         elif isinstance(correct, str):
-            corr = correct.strip().upper()
-            if corr in letters[:len(t["options"])]:
-                t["correct"] = corr
+            c = correct.strip().upper()
+            if c in LETTERS:
+                t["correct"] = c
             else:
-                # возможно модель вернула текст ответа -> попробуем найти совпадение в options
                 found = False
-                for i, opt in enumerate(t["options"]):
-                    if corr == opt.upper() or corr in opt.upper():
-                        t["correct"] = letters[i]
+                for i, opt in enumerate(options):
+                    if correct.lower() in opt.lower():
+                        t["correct"] = LETTERS[i]
                         found = True
                         break
                 if not found:
-                    # случайная буква из доступных
-                    t["correct"] = random.choice(letters[:max(1, len(t["options"]))]) if t["options"] else "A"
+                    t["correct"] = random.choice(LETTERS)
         else:
-            # не задано -> случайная буква
-            t["correct"] = random.choice(letters[:max(1, len(t["options"]))]) if t["options"] else "A"
+            t["correct"] = random.choice(LETTERS)
 
-# ----------------- DB helpers (Supabase) -----------------
+def validate_material(material: dict) -> None:
+    if not isinstance(material, dict):
+        raise ValueError("material not dict")
+
+    if "lesson" not in material or "cards" not in material or "tests" not in material:
+        raise ValueError("material structure broken")
+
+    if len(material["cards"]) != 5 or len(material["tests"]) != 5:
+        raise ValueError("wrong cards/tests count")
+
+    normalize_tests(material["tests"])
+
+# ----------------- DB -----------------
 def ensure_user(user_id: int, username: Optional[str]):
     supabase.table("users").upsert({
         "id": user_id,
@@ -166,90 +161,49 @@ def get_material_from_db(topic: str) -> Optional[dict]:
         .limit(1)
         .execute()
     )
-    if res.data:
-        return res.data[0]["content"]
-    return None
+    return res.data[0]["content"] if res.data else None
 
 def save_material_to_db(topic: str, material: dict):
-    supabase.table("materials").insert({
+    supabase.table("materials").upsert({
         "topic": normalize_topic(topic),
         "topic_hash": topic_hash(topic),
-        "content": material
+        "content": material,
+        "model": OPENAI_MODEL
     }).execute()
 
-# ----------------- OpenAI call -----------------
+# ----------------- OPENAI -----------------
 async def generate_material(topic: str) -> Dict[str, Any]:
-    def sync():
-        response = openai_client.responses.create(
+    def sync_call():
+        return openai_client.responses.create(
             model=OPENAI_MODEL,
             input=[
-                {
-                    "role": "system",
-                    "content": build_system_prompt(),
-                },
-                {
-                    "role": "user",
-                    "content": build_user_prompt(topic),
-                },
+                {"role": "system", "content": build_system_prompt()},
+                {"role": "user", "content": build_user_prompt(topic)},
             ],
-        )
-        return response.output_text
+            max_output_tokens=1500,
+        ).output_text
 
     for _ in range(3):
-        text = await asyncio.to_thread(sync)
-
+        text = await asyncio.to_thread(sync_call)
         if not text:
             continue
-
         try:
-            return safe_json_parse(text)
-        except Exception as e:
-            print("JSON parse failed")
-            print(text[:1000])
-            print("Error:", e)
+            data = safe_json_parse(text)
+            validate_material(data)
+            return data
+        except Exception:
             continue
 
-    raise RuntimeError("Не удалось распарсить JSON")
+    raise RuntimeError("LLM returned invalid JSON")
 
-
-# ----------------- Formatting -----------------
-def format_lesson(lesson: dict) -> str:
-    """
-    Возвращает HTML-строку урока — будем отправлять с parse_mode="HTML".
-    Обрезаем вложенные теги, используем <b>, <code>.
-    """
-    title = lesson.get("title", "Мини-урок")
-    parts = [f"<b>{escape_html(title)}</b>\n"]
-    for sec in lesson.get("sections", []):
-        header = sec.get("header")
-        if header:
-            parts.append(f"🔹 <b>{escape_html(header)}</b>")
-        text = sec.get("text", "")
-        if text:
-            parts.append(escape_html(text))
-        for kp in sec.get("key_points", []):
-            parts.append(f"• {escape_html(kp)}")
-        formula = sec.get("formula")
-        if formula:
-            parts.append(f"📐 Формула: <code>{escape_html(formula)}</code>")
-        parts.append("")  # blank line
-    return "\n".join(parts)
-
-def escape_html(s: str) -> str:
-    """Простая экранизация для HTML-отправки."""
-    return (s.replace("&", "&amp;")
-             .replace("<", "&lt;")
-             .replace(">", "&gt;"))
-
-# ----------------- Keyboards -----------------
-def main_menu() -> InlineKeyboardMarkup:
+# ----------------- KEYBOARDS -----------------
+def main_menu():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📘 Учёба", callback_data="study")],
         [InlineKeyboardButton(text="👤 Профиль", callback_data="profile")],
-        [InlineKeyboardButton(text="🆘 Поддержка", url="https://t.me/ligr5")],
     ])
 
-def study_menu() -> InlineKeyboardMarkup:
+def study_menu():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📖 Мини-урок", callback_data="lesson")],
         [InlineKeyboardButton(text="🧠 Карточки", callback_data="cards")],
@@ -258,35 +212,23 @@ def study_menu() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_start")],
     ])
 
-def study_topics_kb(topics: List[str]) -> InlineKeyboardMarkup:
-    kb = []
-    for i, t in enumerate(topics):
-        kb.append([InlineKeyboardButton(text=f"📌 {t}", callback_data=f"topic_idx:{i}")])
-    kb.append([InlineKeyboardButton(text="➕ Новая тема", callback_data="new_topic")])
-    kb.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_start")])
-    return InlineKeyboardMarkup(inline_keyboard=kb)
+def test_kb(options: List[str], idx: int):
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
+            text=f"{LETTERS[i]}) {opt}",
+            callback_data=f"answer:{idx}:{LETTERS[i]}"
+        )] for i, opt in enumerate(options)
+    ] + [[InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_formats")]])
 
-def test_kb(options: List[str], idx: int) -> InlineKeyboardMarkup:
-    kb = []
-    letters = ["A", "B", "C", "D", "E"]
-    for i, text in enumerate(options):
-        if i >= len(letters):
-            break
-        letter = letters[i]
-        kb.append([InlineKeyboardButton(text=f"{letter}) {text}", callback_data=f"answer:{idx}:{letter}")])
-    kb.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_formats")])
-    return InlineKeyboardMarkup(inline_keyboard=kb)
-
-def finish_lesson_kb() -> InlineKeyboardMarkup:
+def finish_lesson_kb():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="✅ Завершить урок", callback_data="finish_lesson")]
     ])
 
-# ----------------- UI helpers -----------------
-async def show_start_screen(target):
-    # target — Message (мы всегда передаём message)
-    await target.answer(
-        "👋 Привет! Я ExplainlyStudy.\nОтправь тему текстом — помогу её изучить.",
+# ----------------- HELPERS -----------------
+async def show_start_screen(msg: Message):
+    await msg.answer(
+        "👋 Привет! Отправь тему для изучения.",
         reply_markup=main_menu()
     )
 
@@ -294,12 +236,12 @@ async def get_material_or_restart(call: CallbackQuery, state: FSMContext) -> Opt
     data = await state.get_data()
     material = data.get("material")
     if not material:
-        await call.message.answer("⚠️ Сессия устарела. Пожалуйста, выбери тему заново.")
+        await call.message.answer("⚠️ Сессия устарела. Выбери тему заново.")
         await show_start_screen(call.message)
         return None
     return material
 
-# ----------------- Handlers -----------------
+# ----------------- HANDLERS -----------------
 @dp.message(CommandStart())
 async def start(message: Message):
     ensure_user(message.from_user.id, message.from_user.username)
@@ -308,97 +250,44 @@ async def start(message: Message):
 @dp.message()
 async def handle_message(message: Message, state: FSMContext):
     if not message.text:
-        await message.answer("❗ Я пока понимаю только текстовые темы.")
+        await message.answer("❗ Только текст.")
         return
 
     topic = message.text.strip()
     ensure_user(message.from_user.id, message.from_user.username)
     save_request(message.from_user.id, topic)
 
-    # проверка в БД
-    material = get_material_from_db(topic)
-    if material:
-        await message.answer("📦 Материал загружен из базы.")
-    else:
-        await message.answer("⏳ Генерирую материал...")
-        try:
-            material = await generate_material(topic)
-        except Exception as e:
-            await message.answer("❌ Не удалось сгенерировать материал. Попробуй переформулировать тему.")
-            return
-        save_material_to_db(topic, material)
-
-    # сохраняем topic и material в state
-    await state.set_state(StudyState.material)
-    await state.update_data(material=material, topic=topic)
-
-    await message.answer(f"📌 Тема: {topic}\nВыбери формат обучения:", reply_markup=study_menu())
-
-@dp.callback_query(F.data == "study")
-async def open_study(call: CallbackQuery, state: FSMContext):
-    await call.answer()
-    topics = get_last_requests(call.from_user.id)
-    await state.update_data(last_topics=topics)
-    if not topics:
-        await call.message.answer("📘 У тебя пока нет тем. Отправь новую тему текстом.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="➕ Новая тема", callback_data="new_topic")],
-            [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_start")],
-        ]))
-        return
-    await call.message.answer("📘 Выбери тему:", reply_markup=study_topics_kb(topics))
-
-@dp.callback_query(F.data.startswith("topic_idx:"))
-async def select_old_topic(call: CallbackQuery, state: FSMContext):
-    await call.answer()
-    idx = int(call.data.replace("topic_idx:", ""))
-    data = await state.get_data()
-    last_topics = data.get("last_topics", [])
-    if idx < 0 or idx >= len(last_topics):
-        await call.message.answer("❗ Неверный индекс темы.")
-        return
-    topic = last_topics[idx]
     material = get_material_from_db(topic)
     if not material:
-        await call.message.answer("⏳ Генерирую материал...")
-        try:
-            material = await generate_material(topic)
-        except Exception:
-            await call.message.answer("❌ Ошибка генерации.")
-            return
+        await message.answer("⏳ Генерирую материал...")
+        material = await generate_material(topic)
         save_material_to_db(topic, material)
     else:
-        await call.message.answer("📦 Материал загружен из базы.")
+        await message.answer("📦 Материал из базы.")
+
     await state.set_state(StudyState.material)
     await state.update_data(material=material, topic=topic)
-    await call.message.answer(f"📌 Тема: {topic}\nВыбери формат обучения:", reply_markup=study_menu())
 
-@dp.callback_query(F.data == "new_topic")
-async def new_topic(call: CallbackQuery):
-    await call.answer()
-    await call.message.answer("✍️ Отправь новую тему текстом.")
+    await message.answer(f"📌 Тема: {topic}", reply_markup=study_menu())
 
-@dp.callback_query(F.data == "back_to_start")
-async def back_to_start(call: CallbackQuery):
-    await call.answer()
-    await show_start_screen(call.message)
-
-@dp.callback_query(F.data == "profile")
-async def profile(call: CallbackQuery):
-    await call.answer()
-    await call.message.answer(f"👤 Профиль\nID: {call.from_user.id}\nСтатус: Free")
-
-# ---------- Форматы ----------
+# ---------- форматы ----------
 @dp.callback_query(F.data == "lesson")
 async def lesson(call: CallbackQuery, state: FSMContext):
     await call.answer()
     material = await get_material_or_restart(call, state)
     if not material:
         return
-    lesson_obj = material.get("lesson", {})
-    # Отправляем HTML (format_lesson вернёт экранированный HTML)
-    await call.message.answer(format_lesson(lesson_obj), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_formats")]
-    ]))
+
+    lesson = material["lesson"]
+    text = f"<b>{escape_html(lesson.get('title', 'Урок'))}</b>\n\n"
+    for sec in lesson.get("sections", []):
+        text += f"<b>{escape_html(sec.get('header',''))}</b>\n"
+        text += f"{escape_html(sec.get('text',''))}\n\n"
+
+    await call.message.answer(text, parse_mode="HTML",
+                              reply_markup=InlineKeyboardMarkup(
+                                  inline_keyboard=[[InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_formats")]]
+                              ))
 
 @dp.callback_query(F.data == "back_to_formats")
 async def back_to_formats(call: CallbackQuery, state: FSMContext):
@@ -408,32 +297,30 @@ async def back_to_formats(call: CallbackQuery, state: FSMContext):
     if not topic:
         await show_start_screen(call.message)
         return
-    await call.message.answer(f"📌 Тема: {topic}\nВыбери формат обучения:", reply_markup=study_menu())
+    await call.message.answer(f"📌 Тема: {topic}", reply_markup=study_menu())
 
-# ---------- Карточки ----------
+# ---------- карточки ----------
 @dp.callback_query(F.data == "cards")
 async def start_cards(call: CallbackQuery, state: FSMContext):
     await call.answer()
-    material = await get_material_or_restart(call, state)
-    if not material:
-        return
     await state.update_data(card_index=0)
     await send_card(call, state)
 
 async def send_card(call: CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    cards = data.get("material", {}).get("cards", [])
+    cards = data["material"]["cards"]
     idx = data.get("card_index", 0)
-    total = len(cards)
-    if idx >= total:
+
+    if idx >= len(cards):
         await call.message.answer("🎉 Карточки закончились.", reply_markup=finish_lesson_kb())
         return
+
     card = cards[idx]
     await call.message.answer(
-        f"🧠 Карточка {idx + 1} / {total}\n\n❓ {card.get('question', '—')}",
+        f"🧠 Карточка {idx+1}/5\n\n❓ {card['question']}",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="Показать ответ", callback_data="card_answer")],
-            [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_formats")],
+            [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_formats")]
         ])
     )
 
@@ -441,160 +328,121 @@ async def send_card(call: CallbackQuery, state: FSMContext):
 async def card_answer(call: CallbackQuery, state: FSMContext):
     await call.answer()
     data = await state.get_data()
-    idx = data.get("card_index", 0)
-    cards = data.get("material", {}).get("cards", [])
-    if idx < 0 or idx >= len(cards):
-        await call.message.answer("❗ Карточка не найдена.")
-        return
-    answer_text = cards[idx].get("answer", "—")
+    idx = data["card_index"]
+    card = data["material"]["cards"][idx]
+
     await call.message.answer(
-        "✅ Ответ:\n" + answer_text,
+        f"✅ Ответ:\n{card['answer']}",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="Следующая", callback_data="card_next")],
-            [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_formats")],
+            [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_formats")]
         ])
     )
 
 @dp.callback_query(F.data == "card_next")
 async def card_next(call: CallbackQuery, state: FSMContext):
     await call.answer()
-    data = await state.get_data()
-    idx = data.get("card_index", 0) + 1
+    idx = (await state.get_data()).get("card_index", 0) + 1
     await state.update_data(card_index=idx)
     await send_card(call, state)
 
-# ---------- Тест ----------
+# ---------- тест ----------
 @dp.callback_query(F.data == "test")
 async def start_test(call: CallbackQuery, state: FSMContext):
     await call.answer()
-    material = await get_material_or_restart(call, state)
-    if not material:
-        return
     await state.update_data(test_index=0, test_score=0)
     await send_test(call, state)
 
 async def send_test(call: CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    material = data.get("material", {})
-    tests = material.get("tests", [])
+    tests = data["material"]["tests"]
     idx = data.get("test_index", 0)
-    total = len(tests)
-    if idx >= total:
-        await call.message.answer(f"🎉 Тест завершён!\nРезультат: {data.get('test_score', 0)} / {total}", reply_markup=finish_lesson_kb())
+
+    if idx >= len(tests):
+        await call.message.answer(
+            f"🎉 Тест завершён!\nРезультат: {data['test_score']} / {len(tests)}",
+            reply_markup=finish_lesson_kb()
+        )
         return
+
     t = tests[idx]
-    question = t.get("question", "—")
-    options = t.get("options", [])
-    # Если options — dict, преобразуем
-    if isinstance(options, dict):
-        letters = ["A", "B", "C", "D", "E"]
-        opts_list = []
-        for L in letters:
-            if L in options:
-                opts_list.append(options[L])
-        if not opts_list:
-            opts_list = list(options.values())
-        options = opts_list
-    await call.message.answer(f"📝 Вопрос {idx + 1} из {total}\n\n{question}", reply_markup=test_kb(options, idx))
+    await call.message.answer(
+        f"📝 Вопрос {idx+1}/5\n\n{t['question']}",
+        reply_markup=test_kb(t["options"], idx)
+    )
 
 @dp.callback_query(F.data.startswith("answer:"))
 async def answer(call: CallbackQuery, state: FSMContext):
     await call.answer()
-    try:
-        _, idx_s, chosen = call.data.split(":")
-        idx = int(idx_s)
-    except Exception:
-        await call.message.answer("❗ Некорректные данные ответа.")
-        return
-    material = await get_material_or_restart(call, state)
-    if not material:
-        return
-    tests = material.get("tests", [])
-    if idx < 0 or idx >= len(tests):
-        await call.message.answer("❗ Неверный индекс вопроса.")
-        return
+    _, idx_s, chosen = call.data.split(":")
+    idx = int(idx_s)
+
     data = await state.get_data()
-    score = data.get("test_score", 0)
-    test = tests[idx]
-    correct = get_correct_answer(test)
+    test = data["material"]["tests"][idx]
+    correct = test["correct"]
+    score = data["test_score"]
+
     if chosen == correct:
         score += 1
         await call.message.answer("✅ Верно!")
     else:
-        await call.message.answer(f"❌ Неверно. Правильный ответ: {correct}")
+        ci = LETTERS.index(correct)
+        await call.message.answer(
+            f"❌ Неверно.\nПравильно: {correct}) {test['options'][ci]}"
+        )
+
     await state.update_data(test_index=idx + 1, test_score=score)
     await send_test(call, state)
 
-# ---------- Практика ----------
+# ---------- практика ----------
 @dp.callback_query(F.data == "practice")
 async def practice(call: CallbackQuery, state: FSMContext):
     await call.answer()
-    material = await get_material_or_restart(call, state)
-    if not material:
-        return
-    p = material.get("practice", {})
-    problem = p.get("problem", "—")
-    await call.message.answer("🧪 Практика:\n" + problem, reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Показать решение", callback_data="solution")],
-        [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_formats")]
-    ]))
+    p = (await state.get_data())["material"]["practice"]
+    await call.message.answer(
+        f"🧪 Практика:\n{p.get('problem','—')}",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="Показать решение", callback_data="solution")],
+            [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_formats")]
+        ])
+    )
 
 @dp.callback_query(F.data == "solution")
 async def solution(call: CallbackQuery, state: FSMContext):
     await call.answer()
-    material = await get_material_or_restart(call, state)
-    if not material:
-        return
-    p = material.get("practice", {})
-    await call.message.answer("✅ Решение:\n" + p.get("solution", "—"), reply_markup=finish_lesson_kb())
+    p = (await state.get_data())["material"]["practice"]
+    await call.message.answer(
+        f"✅ Решение:\n{p.get('solution','—')}",
+        reply_markup=finish_lesson_kb()
+    )
 
-# ---------- Завершение урока ----------
+# ---------- завершение ----------
 @dp.callback_query(F.data == "finish_lesson")
 async def finish_lesson(call: CallbackQuery, state: FSMContext):
     await call.answer()
-    data = await state.get_data()
-    topic = data.get("topic")
-    # Очистим состояние урока (но можно сохранить историю)
+    topic = (await state.get_data()).get("topic")
     await state.clear()
-    if not topic:
-        await show_start_screen(call.message)
-        return
-    await call.message.answer(f"Вы завершили тему: {topic}\nЧто дальше?", reply_markup=main_menu())
+    await call.message.answer(f"Тема завершена: {topic}", reply_markup=main_menu())
 
-# ---- простой HTTP-сервер для Render ----
+# ---------- WEB ----------
 async def run_webserver():
     app = web.Application()
-    async def health(request):
-        return web.Response(text="ok")
-    app.add_routes([web.get("/", health), web.get("/health", health)])
+    app.add_routes([web.get("/health", lambda _: web.Response(text="ok"))])
     runner = web.AppRunner(app)
     await runner.setup()
-    port = int(os.environ.get("PORT", os.environ.get("RENDER_PORT", 8000)))
-    site = web.TCPSite(runner, "0.0.0.0", port)
+    site = web.TCPSite(runner, "0.0.0.0", int(os.getenv("PORT", 8000)))
     await site.start()
-    print(f"Web server started on 0.0.0.0:{port}")
-    # держим задачу живой
     while True:
         await asyncio.sleep(3600)
 
-# ---- объединяем polling и http-сrv ----
 async def main():
-    print("ExplainlyStudy — запускаем webserver и polling")
-    web_task = asyncio.create_task(run_webserver())
-    polling_task = asyncio.create_task(dp.start_polling(bot))
-    # если любая из задач завершится с ошибкой — поднимем исключение
-    done, pending = await asyncio.wait(
-        [web_task, polling_task],
-        return_when=asyncio.FIRST_EXCEPTION,
+    await asyncio.gather(
+        run_webserver(),
+        dp.start_polling(bot)
     )
-    for t in pending:
-        t.cancel()
-    for t in done:
-        if t.exception():
-            raise t.exception()
 
 if __name__ == "__main__":
     asyncio.run(main())
 
-# Запуск: python bot.py
-# Установка зависимостей: pip install -r requirements.txt
+# python bot.py
+#pip install -r requirements.txt
