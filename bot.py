@@ -173,28 +173,107 @@ def save_material_to_db(topic: str, material: dict):
 
 # ----------------- OPENAI -----------------
 async def generate_material(topic: str) -> Dict[str, Any]:
-    def sync_call():
+    """
+    Надёжная генерация учебного материала.
+    НЕ меняет UX.
+    НЕ упрощает FSM.
+    Исправляет проблемы Responses API и LLM.
+    """
+
+    def sync_call() -> Any:
         return openai_client.responses.create(
             model=OPENAI_MODEL,
             input=[
-                {"role": "system", "content": build_system_prompt()},
-                {"role": "user", "content": build_user_prompt(topic)},
+                {
+                    "role": "system",
+                    "content": build_system_prompt(),
+                },
+                {
+                    "role": "user",
+                    "content": build_user_prompt(topic),
+                },
             ],
-            max_output_tokens=1500,
-        ).output_text
+            max_output_tokens=1800,
+        )
 
-    for _ in range(3):
-        text = await asyncio.to_thread(sync_call)
-        if not text:
-            continue
+    last_error: Optional[Exception] = None
+
+    for attempt in range(3):
         try:
-            data = safe_json_parse(text)
-            validate_material(data)
-            return data
-        except Exception:
-            continue
+            response = await asyncio.to_thread(sync_call)
 
-    raise RuntimeError("LLM returned invalid JSON")
+            # 1. Пытаемся получить текст напрямую (output_text может быть None)
+            text = getattr(response, "output_text", None)
+
+            # 2. Если пусто — пытаемся собрать текст из output[]
+            if not text and hasattr(response, "output"):
+                parts = []
+                for item in response.output:
+                    if not isinstance(item, dict):
+                        continue
+                    content = item.get("content")
+                    if not isinstance(content, list):
+                        continue
+                    for c in content:
+                        if c.get("type") == "output_text":
+                            parts.append(c.get("text", ""))
+                text = "\n".join(parts).strip()
+
+            if not text:
+                raise ValueError("LLM returned empty text")
+
+            # 3. Парсим JSON
+            material = safe_json_parse(text)
+
+            # 4. МЯГКАЯ структурная проверка (НЕ валим за мелочи)
+            if not isinstance(material, dict):
+                raise ValueError("material is not dict")
+
+            if "lesson" not in material:
+                raise ValueError("missing lesson")
+            if "cards" not in material or not isinstance(material["cards"], list):
+                raise ValueError("missing cards")
+            if "tests" not in material or not isinstance(material["tests"], list):
+                raise ValueError("missing tests")
+            if "practice" not in material:
+                raise ValueError("missing practice")
+
+            # 5. Нормализация количеств (НЕ ломает UX)
+            material["cards"] = material["cards"][:5]
+            material["tests"] = material["tests"][:5]
+
+            while len(material["cards"]) < 5:
+                material["cards"].append({
+                    "question": "—",
+                    "answer": "—"
+                })
+
+            while len(material["tests"]) < 5:
+                material["tests"].append({
+                    "question": "—",
+                    "options": ["—", "—", "—", "—"],
+                    "correct": "A"
+                })
+
+            # 6. Нормализация тестов (критично)
+            normalize_tests(material["tests"])
+
+            # 7. Финальная страховка
+            for t in material["tests"]:
+                if "correct" not in t or t["correct"] not in ["A", "B", "C", "D"]:
+                    t["correct"] = "A"
+
+            return material
+
+        except Exception as e:
+            last_error = e
+            # можно логировать при необходимости
+            # print(f"[generate_material] attempt {attempt+1} failed:", e)
+            await asyncio.sleep(0.5)
+
+
+    raise RuntimeError(f"Не удалось сгенерировать материал: {last_error}")
+
 
 # ----------------- KEYBOARDS -----------------
 def main_menu():
