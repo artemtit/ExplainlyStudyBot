@@ -107,16 +107,28 @@ def normalize_topic(topic: str) -> str:
 def topic_hash(topic: str) -> str:
     return hashlib.sha256(normalize_topic(topic).encode()).hexdigest()
 
+def strip_code_fences(text: str) -> str:
+    t = text.strip()
+    # Remove common Markdown fences ```json ... ``` or ``` ... ```
+    if t.startswith("```") and t.endswith("```"):
+        lines = t.splitlines()
+        if len(lines) >= 2:
+            inner = "\n".join(lines[1:-1])
+            return inner.strip()
+    return t
+
+
 def safe_json_parse(text: str) -> dict:
     """
     Извлекает JSON-объект из текста (между первым { и последним }).
     Бросает ValueError/JSONDecodeError при проблемах.
     """
-    start = text.find("{")
-    end = text.rfind("}")
+    t = strip_code_fences(text)
+    start = t.find("{")
+    end = t.rfind("}")
     if start == -1 or end == -1 or end <= start:
         raise ValueError("JSON not found in model response")
-    raw = text[start:end + 1]
+    raw = t[start:end + 1]
     return json.loads(raw)
 
 def get_correct_answer(test: dict) -> str:
@@ -262,39 +274,40 @@ async def save_material_to_db(topic: str, material: dict):
 
 # ----------------- OpenAI call -----------------
 async def generate_material(topic: str) -> Dict[str, Any]:
-    def sync_call():
-        response = openai_client.responses.create(
+    def sync_call() -> str:
+        completion = openai_client.chat.completions.create(
             model=OPENAI_MODEL,
-            input=[
+            messages=[
                 {"role": "system", "content": build_system_prompt()},
                 {"role": "user", "content": build_user_prompt(topic)},
             ],
+            response_format={"type": "json_object"},
         )
-        return response.output_text
+        return completion.choices[0].message.content or ""
 
-    for attempt in range(3):
+    retries = 3
+    base_delay = 0.5
+    for attempt in range(retries):
         try:
-            text = await asyncio.wait_for(asyncio.to_thread(sync_call), timeout=60)
+            content = await asyncio.wait_for(asyncio.to_thread(sync_call), timeout=25)
+            if not content:
+                logger.warning("OpenAI returned empty content on attempt %d", attempt + 1)
+            else:
+                try:
+                    return json.loads(content)
+                except json.JSONDecodeError:
+                    logger.error("JSON decode failed on attempt %d", attempt + 1)
+                    logger.debug("Model content (truncated): %s", content[:2000])
         except asyncio.TimeoutError:
-            logger.warning("OpenAI timeout on attempt %d", attempt + 1)
-            continue
+            logger.warning("OpenAI chat completion timeout on attempt %d", attempt + 1)
         except Exception:
-            logger.exception("OpenAI error on attempt %d", attempt + 1)
-            continue
+            logger.exception("OpenAI chat completion error on attempt %d", attempt + 1)
 
-        if not text:
-            logger.warning("OpenAI returned empty text on attempt %d", attempt + 1)
-            continue
+        if attempt < retries - 1:
+            delay = base_delay * (2 ** attempt) + random.uniform(0, 0.25)
+            await asyncio.sleep(delay)
 
-        try:
-            parsed = safe_json_parse(text)
-            return parsed
-        except Exception:
-            logger.warning("JSON parse failed on attempt %d", attempt + 1)
-            logger.debug("Model raw: %s", text[:1500])
-            continue
-
-    raise RuntimeError("Не удалось распарсить JSON ответа модели")
+    raise RuntimeError("Генерация материала не удалась: модель не вернула валидный JSON")
 
 # ----------------- Formatting -----------------
 def escape_html(s: str) -> str:
