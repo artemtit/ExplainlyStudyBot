@@ -556,7 +556,7 @@ async def select_old_topic(call: CallbackQuery, state: FSMContext):
         material = normalize_material(material)
         await state.set_state(StudyState.material)
         await state.update_data(material=material, topic=topic)
-        await call.message.answer(f"📌 Тема: {topic}\nВыбери ф��рмат обучения:", reply_markup=study_menu())
+        await call.message.answer(f"📌 Тема: {topic}\nВыбери формат обучения:", reply_markup=study_menu())
 
 @dp.callback_query(F.data == "new_topic")
 async def new_topic(call: CallbackQuery):
@@ -823,7 +823,7 @@ async def run_webserver():
             await runner.cleanup()
         raise
 
-# ---- объ��диняем polling и http-сервер ----
+# ---- объединяем polling и http-сервер ----
 async def main():
     logger.info("ExplainlyStudy — starting webserver and polling")
     web_task = asyncio.create_task(run_webserver())
