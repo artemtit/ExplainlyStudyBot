@@ -278,50 +278,25 @@ async def save_material_to_db(topic: str, material: dict):
     return await _sb_to_thread("save_material", _sb_save_material_sync, topic, material)
 
 # ----------------- Generation via Hugging Face Inference API -----------------
-async def generate_material(topic: str) -> Dict[str, Any]:
+def _sync_call() -> str:
+    from groq import Groq
 
-    def _sync_call() -> str:
-        completion = openai_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",,
-            messages=[
-                {"role": "system", "content": build_system_prompt()},
-                {"role": "user", "content": build_user_prompt(topic)},
-            ],
-            temperature=0.7,
-            max_tokens=1200,
-            response_format={"type": "json_object"},
-        )
+    client = Groq(api_key=GROQ_API_KEY)
 
-        return completion.choices[0].message.content
+    completion = client.chat.completions.create(
+        model="llama-3.1-8b-instant",
+        messages=[
+            {"role": "system", "content": build_system_prompt()},
+            {"role": "user", "content": build_user_prompt(topic)},
+        ],
+        temperature=0.7,
+        max_completion_tokens=1200,
+        top_p=1,
+        stream=False,
+        response_format={"type": "json_object"},
+    )
 
-    retries = 2
-    base_delay = 0.5
-
-    for attempt in range(retries):
-        try:
-            raw = await asyncio.wait_for(
-                asyncio.to_thread(_sync_call),
-                timeout=30
-            )
-
-            if not raw:
-                logger.warning("Groq returned empty response (attempt %d)", attempt + 1)
-                continue
-
-            return safe_json_parse(raw)
-
-        except asyncio.TimeoutError:
-            logger.warning("Groq timeout (attempt %d)", attempt + 1)
-
-        except Exception as e:
-            logger.exception("Groq generation failed (attempt %d): %s", attempt + 1, e)
-
-        if attempt < retries - 1:
-            delay = base_delay * (2 ** attempt)
-            await asyncio.sleep(delay)
-
-    raise RuntimeError("Groq generation failed after retries")
-
+    return completion.choices[0].message.content
 # ----------------- Formatting -----------------
 def escape_html(s: str) -> str:
     return (
