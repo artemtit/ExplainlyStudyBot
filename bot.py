@@ -8,6 +8,7 @@ import logging
 from typing import List, Dict, Any, Optional
 from contextlib import suppress
 import requests
+from openai import OpenAI
 
 from aiohttp import web
 from dotenv import load_dotenv
@@ -39,17 +40,23 @@ logger = logging.getLogger("explainly")
 
 # ----------------- Load env -----------------
 load_dotenv()
+
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-HF_API_KEY = os.getenv("HF_API_KEY")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-REDIS_DSN = os.getenv("REDIS_DSN")  # optional for scalable FSM
+REDIS_DSN = os.getenv("REDIS_DSN")
 
-if not all([TELEGRAM_TOKEN, HF_API_KEY, SUPABASE_URL, SUPABASE_KEY]):
-    raise RuntimeError("Проверь .env — нужны TELEGRAM_TOKEN, HF_API_KEY, SUPABASE_URL, SUPABASE_KEY")
+if not all([TELEGRAM_TOKEN, GROQ_API_KEY, SUPABASE_URL, SUPABASE_KEY]):
+    raise RuntimeError(
+        "Проверь .env — нужны TELEGRAM_TOKEN, GROQ_API_KEY, SUPABASE_URL, SUPABASE_KEY"
+    )
 
+openai_client = OpenAI(
+    api_key=GROQ_API_KEY,
+    base_url="https://api.groq.com/openai/v1"
+)
 # ----------------- FSM storage -----------------
-# Prefer Redis in production if REDIS_DSN provided. Fallback to MemoryStorage.
 storage = None
 if REDIS_DSN:
     try:
@@ -272,61 +279,48 @@ async def save_material_to_db(topic: str, material: dict):
 
 # ----------------- Generation via Hugging Face Inference API -----------------
 async def generate_material(topic: str) -> Dict[str, Any]:
-    endpoint = "https://router.huggingface.co/hf-inference/models/HuggingFaceH4/zephyr-7b-beta"
 
     def _sync_call() -> str:
-        headers = {
-            "Authorization": f"Bearer {HF_API_KEY}",
-            "Content-Type": "application/json",
-        }
+        completion = openai_client.chat.completions.create(
+            model="llama3-8b-8192",
+            messages=[
+                {"role": "system", "content": build_system_prompt()},
+                {"role": "user", "content": build_user_prompt(topic)},
+            ],
+            temperature=0.7,
+            max_tokens=1200,
+            response_format={"type": "json_object"},
+        )
 
-        prompt = f"{build_system_prompt()}\n\n{build_user_prompt(topic)}"
+        return completion.choices[0].message.content
 
-        payload = {
-            "inputs": prompt,
-            "parameters": {
-                "max_new_tokens": 700,
-                "temperature": 0.2,
-                "return_full_text": False,
-            },
-            "options": {"wait_for_model": True},
-        }
+    retries = 2
+    base_delay = 0.5
 
-        resp = requests.post(endpoint, headers=headers, json=payload, timeout=20)
-
-        if resp.status_code != 200:
-            raise RuntimeError(
-                f"HF error {resp.status_code}: {resp.text[:300]}"
-            )
-
-        data = resp.json()
-
-        if isinstance(data, list) and data:
-            text = data[0].get("generated_text")
-        elif isinstance(data, dict):
-            text = data.get("generated_text")
-        else:
-            raise RuntimeError("Unexpected HF response format")
-
-        if not text:
-            raise RuntimeError("HF returned empty content")
-
-        return text
-
-    for attempt in range(2):
+    for attempt in range(retries):
         try:
             raw = await asyncio.wait_for(
                 asyncio.to_thread(_sync_call),
-                timeout=30,
+                timeout=30
             )
+
+            if not raw:
+                logger.warning("Groq returned empty response (attempt %d)", attempt + 1)
+                continue
+
             return safe_json_parse(raw)
 
-        except Exception as e:
-            logger.exception("HF generation failed (attempt %s)", attempt + 1)
-            if attempt == 0:
-                await asyncio.sleep(1)
+        except asyncio.TimeoutError:
+            logger.warning("Groq timeout (attempt %d)", attempt + 1)
 
-    raise RuntimeError("HF generation failed after retries")
+        except Exception as e:
+            logger.exception("Groq generation failed (attempt %d): %s", attempt + 1, e)
+
+        if attempt < retries - 1:
+            delay = base_delay * (2 ** attempt)
+            await asyncio.sleep(delay)
+
+    raise RuntimeError("Groq generation failed after retries")
 
 # ----------------- Formatting -----------------
 def escape_html(s: str) -> str:
