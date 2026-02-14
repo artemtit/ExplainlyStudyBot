@@ -272,7 +272,7 @@ async def save_material_to_db(topic: str, material: dict):
 
 # ----------------- Generation via Hugging Face Inference API -----------------
 async def generate_material(topic: str) -> Dict[str, Any]:
-    endpoint = "https://router.huggingface.co/hf-inference/models/mistralai/Mistral-7B-Instruct"
+    endpoint = "https://router.huggingface.co/hf-inference/models/HuggingFaceH4/zephyr-7b-beta"
 
     def _sync_call() -> str:
         headers = {
