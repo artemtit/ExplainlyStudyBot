@@ -45,6 +45,7 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 REDIS_DSN = os.getenv("REDIS_DSN")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 if not all([TELEGRAM_TOKEN, GROQ_API_KEY, SUPABASE_URL, SUPABASE_KEY]):
     raise RuntimeError(
@@ -281,46 +282,36 @@ async def generate_material(topic: str) -> Dict[str, Any]:
 
     def _sync_call() -> str:
         completion = openai_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="gpt-4.1-mini",
             messages=[
                 {"role": "system", "content": build_system_prompt()},
                 {"role": "user", "content": build_user_prompt(topic)},
             ],
-            temperature=0.7,
+            temperature=0.3,
             max_tokens=1200,
             response_format={"type": "json_object"},
         )
-
         return completion.choices[0].message.content
 
-    retries = 2
-    base_delay = 0.5
+    retries = 3
 
     for attempt in range(retries):
         try:
             raw = await asyncio.wait_for(
                 asyncio.to_thread(_sync_call),
-                timeout=30
+                timeout=40
             )
 
             if not raw:
-                logger.warning("Groq returned empty response (attempt %d)", attempt + 1)
                 continue
 
             return safe_json_parse(raw)
 
-        except asyncio.TimeoutError:
-            logger.warning("Groq timeout (attempt %d)", attempt + 1)
-
         except Exception as e:
-            logger.exception("Groq generation failed (attempt %d): %s", attempt + 1, e)
+            logger.exception("OpenAI generation failed (attempt %d): %s", attempt + 1, e)
+            await asyncio.sleep(1.5 * (attempt + 1))
 
-        if attempt < retries - 1:
-            delay = base_delay * (2 ** attempt)
-            await asyncio.sleep(delay)
-
-    raise RuntimeError("Groq generation failed after retries")
-
+    raise RuntimeError("OpenAI generation failed after retries")
 # ----------------- Formatting -----------------
 def escape_html(s: str) -> str:
     return (
