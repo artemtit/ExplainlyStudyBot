@@ -1,4 +1,4 @@
-Вот код сейчас : import os
+import os
 import json
 import asyncio
 import hashlib
