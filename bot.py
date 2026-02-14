@@ -10,6 +10,7 @@ from contextlib import suppress
 import requests
 from openai import OpenAI
 
+
 from aiohttp import web
 from dotenv import load_dotenv
 from supabase import create_client
@@ -277,18 +278,24 @@ def _sb_save_material_sync(topic: str, material: dict):
 async def save_material_to_db(topic: str, material: dict):
     return await _sb_to_thread("save_material", _sb_save_material_sync, topic, material)
 
-# ----------------- Generation via Hugging Face Inference API -----------------
+# ----------------- Generation via Groq -----------------
 async def generate_material(topic: str) -> Dict[str, Any]:
 
+    from groq import Groq
+
     def _sync_call() -> str:
-        completion = openai_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+        client = Groq(api_key=GROQ_API_KEY)
+
+        completion = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
             messages=[
                 {"role": "system", "content": build_system_prompt()},
                 {"role": "user", "content": build_user_prompt(topic)},
             ],
             temperature=0.7,
-            max_tokens=1200,
+            max_completion_tokens=1200,
+            top_p=1,
+            stream=False,
             response_format={"type": "json_object"},
         )
 
@@ -321,32 +328,6 @@ async def generate_material(topic: str) -> Dict[str, Any]:
             await asyncio.sleep(delay)
 
     raise RuntimeError("Groq generation failed after retries")
-
-# ----------------- Formatting -----------------
-def escape_html(s: str) -> str:
-    return (
-        str(s).replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-    )
-
-def format_lesson(lesson: dict) -> str:
-    title = lesson.get("title", "Мини-урок")
-    parts = [f"<b>{escape_html(title)}</b>\n"]
-    for sec in lesson.get("sections", []):
-        header = sec.get("header")
-        if header:
-            parts.append(f"🔹 <b>{escape_html(header)}</b>")
-        text = sec.get("text", "")
-        if text:
-            parts.append(escape_html(text))
-        for kp in sec.get("key_points", []):
-            parts.append(f"• {escape_html(kp)}")
-        formula = sec.get("formula")
-        if formula:
-            parts.append(f"📐 Формула: <code>{escape_html(formula)}</code>")
-        parts.append("")
-    return "\n".join(parts)
 
 def split_text_by_limit(text: str, limit: int = 4000) -> List[str]:
     chunks = []
@@ -824,7 +805,7 @@ async def run_webserver():
             await runner.cleanup()
         raise
 
-# ---- объ��диняем polling и http-сервер ----
+# ---- объединяем polling и http-сервер ----
 async def main():
     logger.info("ExplainlyStudy — starting webserver and polling")
     web_task = asyncio.create_task(run_webserver())
