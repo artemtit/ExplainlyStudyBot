@@ -53,8 +53,7 @@ if not all([TELEGRAM_TOKEN, GROQ_API_KEY, SUPABASE_URL, SUPABASE_KEY]):
     )
 
 openai_client = OpenAI(
-    api_key=GROQ_API_KEY,
-    base_url="https://api.groq.com/openai/v1"
+    api_key=os.getenv("OPENAI_API_KEY")
 )
 # ----------------- FSM storage -----------------
 storage = None
@@ -282,12 +281,12 @@ async def generate_material(topic: str) -> Dict[str, Any]:
 
     def _sync_call() -> str:
         completion = openai_client.chat.completions.create(
-            model="gpt-4.1-mini",
+            model="gpt-4o",
             messages=[
                 {"role": "system", "content": build_system_prompt()},
                 {"role": "user", "content": build_user_prompt(topic)},
             ],
-            temperature=0.3,
+            temperature=0.7,
             max_tokens=1200,
             response_format={"type": "json_object"},
         )
