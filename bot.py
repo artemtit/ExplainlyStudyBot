@@ -7,10 +7,10 @@ import random
 import logging
 from typing import List, Dict, Any, Optional
 from contextlib import suppress
+import requests
 
 from aiohttp import web
 from dotenv import load_dotenv
-from openai import OpenAI
 from supabase import create_client
 
 from aiogram import Bot, Dispatcher, F
@@ -40,14 +40,13 @@ logger = logging.getLogger("explainly")
 # ----------------- Load env -----------------
 load_dotenv()
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
+HF_API_KEY = os.getenv("HF_API_KEY")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 REDIS_DSN = os.getenv("REDIS_DSN")  # optional for scalable FSM
 
-if not all([TELEGRAM_TOKEN, OPENAI_API_KEY, SUPABASE_URL, SUPABASE_KEY]):
-    raise RuntimeError("Проверь .env — нужны TELEGRAM_TOKEN, OPENAI_API_KEY, SUPABASE_URL, SUPABASE_KEY")
+if not all([TELEGRAM_TOKEN, HF_API_KEY, SUPABASE_URL, SUPABASE_KEY]):
+    raise RuntimeError("Проверь .env — нужны TELEGRAM_TOKEN, HF_API_KEY, SUPABASE_URL, SUPABASE_KEY")
 
 # ----------------- FSM storage -----------------
 # Prefer Redis in production if REDIS_DSN provided. Fallback to MemoryStorage.
@@ -70,7 +69,6 @@ else:
 bot = Bot(token=TELEGRAM_TOKEN, default=DefaultBotProperties())  # explicit parse_mode per message
 dp = Dispatcher(storage=storage)
 
-openai_client = OpenAI(api_key=OPENAI_API_KEY)
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # ----------------- FSM -----------------
@@ -272,42 +270,63 @@ def _sb_save_material_sync(topic: str, material: dict):
 async def save_material_to_db(topic: str, material: dict):
     return await _sb_to_thread("save_material", _sb_save_material_sync, topic, material)
 
-# ----------------- OpenAI call -----------------
+# ----------------- Generation via Hugging Face Inference API -----------------
 async def generate_material(topic: str) -> Dict[str, Any]:
-    def sync_call() -> str:
-        completion = openai_client.chat.completions.create(
-            model=OPENAI_MODEL,
-            messages=[
-                {"role": "system", "content": build_system_prompt()},
-                {"role": "user", "content": build_user_prompt(topic)},
-            ],
-            response_format={"type": "json_object"},
-        )
-        return completion.choices[0].message.content or ""
+    endpoint = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct"
 
-    retries = 3
-    base_delay = 0.5
-    for attempt in range(retries):
+    def _sync_call() -> str:
+        headers = {
+            "Authorization": f"Bearer {HF_API_KEY}",
+            "Content-Type": "application/json",
+        }
+
+        prompt = f"{build_system_prompt()}\n\n{build_user_prompt(topic)}"
+
+        payload = {
+            "inputs": prompt,
+            "parameters": {
+                "max_new_tokens": 700,
+                "temperature": 0.2,
+                "return_full_text": False,
+            },
+            "options": {"wait_for_model": True},
+        }
+
+        resp = requests.post(endpoint, headers=headers, json=payload, timeout=20)
+
+        if resp.status_code != 200:
+            raise RuntimeError(
+                f"HF error {resp.status_code}: {resp.text[:300]}"
+            )
+
+        data = resp.json()
+
+        if isinstance(data, list) and data:
+            text = data[0].get("generated_text")
+        elif isinstance(data, dict):
+            text = data.get("generated_text")
+        else:
+            raise RuntimeError("Unexpected HF response format")
+
+        if not text:
+            raise RuntimeError("HF returned empty content")
+
+        return text
+
+    for attempt in range(2):
         try:
-            content = await asyncio.wait_for(asyncio.to_thread(sync_call), timeout=25)
-            if not content:
-                logger.warning("OpenAI returned empty content on attempt %d", attempt + 1)
-            else:
-                try:
-                    return json.loads(content)
-                except json.JSONDecodeError:
-                    logger.error("JSON decode failed on attempt %d", attempt + 1)
-                    logger.debug("Model content (truncated): %s", content[:2000])
-        except asyncio.TimeoutError:
-            logger.warning("OpenAI chat completion timeout on attempt %d", attempt + 1)
-        except Exception:
-            logger.exception("OpenAI chat completion error on attempt %d", attempt + 1)
+            raw = await asyncio.wait_for(
+                asyncio.to_thread(_sync_call),
+                timeout=30,
+            )
+            return safe_json_parse(raw)
 
-        if attempt < retries - 1:
-            delay = base_delay * (2 ** attempt) + random.uniform(0, 0.25)
-            await asyncio.sleep(delay)
+        except Exception as e:
+            logger.exception("HF generation failed (attempt %s)", attempt + 1)
+            if attempt == 0:
+                await asyncio.sleep(1)
 
-    raise RuntimeError("Генерация материала не удалась: модель не вернула валидный JSON")
+    raise RuntimeError("HF generation failed after retries")
 
 # ----------------- Formatting -----------------
 def escape_html(s: str) -> str:
