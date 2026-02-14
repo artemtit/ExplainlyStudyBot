@@ -281,7 +281,7 @@ async def generate_material(topic: str) -> Dict[str, Any]:
 
     def _sync_call() -> str:
         completion = openai_client.chat.completions.create(
-            model="llama-3.1-8b-instant",
+            model="llama-3.3-70b-versatile",
             messages=[
                 {"role": "system", "content": build_system_prompt()},
                 {"role": "user", "content": build_user_prompt(topic)},
