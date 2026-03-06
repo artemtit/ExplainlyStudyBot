@@ -9,7 +9,7 @@ from typing import Any
 from bot.services.openai_service import OpenAIService
 from bot.services.supabase_service import SupabaseService
 from bot.utils.json_parser import JsonParseError, safe_json_parse
-from bot.utils.strings import PROMPT_SYSTEM, PROMPT_USER
+from bot.utils.strings import PROMPT_SYSTEM, PROMPT_TESTS_SYSTEM, PROMPT_TESTS_USER, PROMPT_USER
 from bot.utils.topic_utils import normalize_topic
 
 logger = logging.getLogger(__name__)
@@ -126,6 +126,48 @@ class MaterialService:
         except MaterialValidationError:
             logger.exception("Material schema validation failed")
             raise
+
+    async def generate_tests(self, topic: str, difficulty: str) -> list[dict[str, Any]]:
+        system_prompt = PROMPT_TESTS_SYSTEM
+        user_prompt = PROMPT_TESTS_USER.format(topic=topic, difficulty=difficulty)
+
+        def parse(raw: str) -> list[dict[str, Any]]:
+            payload = safe_json_parse(raw)
+            tests_obj = payload.get("tests") if isinstance(payload, dict) else payload
+            if not isinstance(tests_obj, list):
+                raise MaterialValidationError("Tests payload missing")
+            return self._normalize_tests(tests_obj)
+
+        try:
+            return await self._llm.generate_json(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                parse_response=parse,
+            )
+        except Exception:
+            logger.exception("Failed to generate tests for topic=%s", topic)
+            raise
+
+    async def save_tests_history(
+        self,
+        user_id: int,
+        topic: str,
+        difficulty: str,
+        tests: list[dict[str, Any]],
+        score: int,
+        total: int,
+    ) -> None:
+        try:
+            await self._db.save_tests_history(user_id, topic, difficulty, tests, score, total)
+        except Exception:
+            logger.exception("Failed to save tests history")
+
+    def update_cached_tests(self, topic: str, tests: list[dict[str, Any]]) -> None:
+        normalized_topic = normalize_topic(topic)
+        entry = self._cache.get(normalized_topic)
+        if entry is None:
+            return
+        entry.material["tests"] = tests
 
     def _get_cached(self, topic: str) -> dict[str, Any] | None:
         entry = self._cache.get(topic)

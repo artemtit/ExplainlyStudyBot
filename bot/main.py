@@ -56,7 +56,7 @@ def _build_dispatcher(material_service: MaterialService, lock_manager: UserLockM
     dp.include_router(build_study_router(material_service, lock_manager, free_tier_notice))
     dp.include_router(build_lesson_router(lock_manager))
     dp.include_router(build_cards_router(lock_manager))
-    dp.include_router(build_tests_router(lock_manager))
+    dp.include_router(build_tests_router(material_service, lock_manager))
     dp.include_router(build_practice_router(lock_manager))
 
     @dp.error()
@@ -101,6 +101,8 @@ async def run_async() -> None:
     health_task = asyncio.create_task(_run_health_server())
     try:
         await dp.start_polling(bot, handle_signals=True)
+    except (asyncio.CancelledError, KeyboardInterrupt):
+        logger.info("Shutdown requested, stopping polling")
     finally:
         health_task.cancel()
         with suppress(Exception):
@@ -110,4 +112,7 @@ async def run_async() -> None:
 
 
 def run() -> None:
-    asyncio.run(run_async())
+    try:
+        asyncio.run(run_async())
+    except KeyboardInterrupt:
+        pass

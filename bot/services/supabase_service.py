@@ -85,3 +85,42 @@ class SupabaseService:
 
     async def save_material(self, topic: str, content: dict[str, Any]) -> None:
         await self._to_thread("save_material", self._save_material_sync, topic, content)
+
+    def _save_tests_history_sync(
+        self,
+        user_id: int,
+        topic: str,
+        difficulty: str,
+        tests: list[dict[str, Any]],
+        score: int,
+        total: int,
+    ) -> Any:
+        payload = {
+            "user_id": user_id,
+            "topic": normalize_topic(topic),
+            "difficulty": difficulty,
+            "tests": tests,
+            "score": score,
+            "total": total,
+        }
+        return self._client.table("tests_history").insert(payload).execute()
+
+    async def save_tests_history(
+        self,
+        user_id: int,
+        topic: str,
+        difficulty: str,
+        tests: list[dict[str, Any]],
+        score: int,
+        total: int,
+    ) -> None:
+        await self._to_thread(
+            "save_tests_history",
+            self._save_tests_history_sync,
+            user_id,
+            topic,
+            difficulty,
+            tests,
+            score,
+            total,
+        )

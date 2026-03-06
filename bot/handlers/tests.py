@@ -1,17 +1,22 @@
 ﻿from __future__ import annotations
 
+from contextlib import suppress
+
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 
 from bot.handlers.common import ensure_material_data
-from bot.keyboards.study_menu import stage_nav_kb, test_options_kb
+from bot.keyboards.study_menu import new_test_kb, stage_nav_kb, test_options_kb
+from bot.services.material_service import MaterialService
 from bot.states.study_state import StudyState
 from bot.utils.locks import UserLockManager
 from bot.utils.strings import (
     ANSWER_CORRECT,
     ANSWER_INCORRECT,
     ANSWER_INVALID,
+    NEW_TEST_CREATING,
+    NEW_TEST_FAILED,
     QUESTION_CLOSED,
     QUESTION_NOT_FOUND,
     TEST_DONE_TEMPLATE,
@@ -27,7 +32,17 @@ def _extract_correct_letter(test: dict) -> str:
     return value if value in {"A", "B", "C", "D"} else "A"
 
 
-async def _render_question(call: CallbackQuery, state: FSMContext) -> None:
+def _difficulty_from_score(score: int, total: int) -> str:
+    if total <= 0:
+        return "medium"
+    if score >= 4:
+        return "hard"
+    if score >= 2:
+        return "medium"
+    return "easy"
+
+
+async def _render_question(call: CallbackQuery, state: FSMContext, material_service: MaterialService | None = None) -> None:
     payload = await ensure_material_data(call, state)
     if payload is None:
         return
@@ -52,7 +67,7 @@ async def _render_question(call: CallbackQuery, state: FSMContext) -> None:
         await state.set_state(StudyState.material_ready)
         await state.update_data(accepting_answer=False)
         body = TEST_DONE_TEMPLATE.format(score=score, total=len(tests))
-        await edit_or_send(call, f"{header}\n\n{body}", reply_markup=stage_nav_kb("test"))
+        await edit_or_send(call, f"{header}\n\n{body}", reply_markup=new_test_kb())
         return
 
     item = tests[index] if isinstance(tests[index], dict) else {}
@@ -78,7 +93,7 @@ async def open_test(call: CallbackQuery, state: FSMContext, *, reset_progress: b
     await _render_question(call, state)
 
 
-def build_router(lock_manager: UserLockManager) -> Router:
+def build_router(material_service: MaterialService, lock_manager: UserLockManager) -> Router:
     router = Router(name="tests")
 
     @router.callback_query(F.data == "test")
@@ -128,6 +143,52 @@ def build_router(lock_manager: UserLockManager) -> Router:
                 await call.answer(ANSWER_INCORRECT.format(correct=correct))
 
             await state.update_data(test_index=idx + 1, test_score=score, accepting_answer=False)
-            await _render_question(call, state)
+            await _render_question(call, state, material_service)
+
+    @router.callback_query(F.data == "new_test")
+    async def new_test_handler(call: CallbackQuery, state: FSMContext) -> None:
+        async with await lock_manager.get(call.from_user.id):
+            await call.answer()
+            payload = await ensure_material_data(call, state)
+            if payload is None:
+                return
+
+            material, topic = payload
+            data = await state.get_data()
+            score = int(data.get("test_score", 0))
+            tests = material.get("tests", [])
+            total = len(tests) if isinstance(tests, list) else 0
+
+            create_msg = await call.message.answer(NEW_TEST_CREATING)
+            difficulty = _difficulty_from_score(score, total)
+            try:
+                new_tests = await material_service.generate_tests(topic, difficulty)
+            except Exception:
+                with suppress(Exception):
+                    await create_msg.delete()
+                await call.message.answer(NEW_TEST_FAILED)
+                return
+
+            if not new_tests:
+                with suppress(Exception):
+                    await create_msg.delete()
+                await call.message.answer(NEW_TEST_FAILED)
+                return
+
+            material["tests"] = new_tests
+            material_service.update_cached_tests(topic, new_tests)
+            await material_service.save_tests_history(
+                user_id=call.from_user.id,
+                topic=topic,
+                difficulty=difficulty,
+                tests=new_tests,
+                score=score,
+                total=total,
+            )
+
+            await state.update_data(material=material, test_index=0, test_score=0, accepting_answer=False)
+            with suppress(Exception):
+                await create_msg.delete()
+            await _render_question(call, state, material_service)
 
     return router

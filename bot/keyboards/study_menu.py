@@ -10,6 +10,7 @@ from bot.utils.strings import (
     BTN_SHOW_SOLUTION,
     BTN_TO_FORMATS,
     BTN_TO_LESSON,
+    NEW_TEST_BUTTON,
     MENU_BACK,
     STUDY_CARDS,
     STUDY_LESSON,
@@ -93,4 +94,10 @@ def practice_kb() -> InlineKeyboardMarkup:
 def profile_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[[InlineKeyboardButton(text=MENU_BACK, callback_data="back_to_start")]]
+    )
+
+
+def new_test_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text=NEW_TEST_BUTTON, callback_data="new_test")]]
     )

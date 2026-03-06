@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
 import logging
+from contextlib import suppress
 
 from aiogram import F, Router
 from aiogram.filters import StateFilter
@@ -53,14 +54,20 @@ async def _load_topic(
 
     status_target = sender if isinstance(sender, Message) else sender.message
 
-    await status_target.answer(GENERATION_TEXT)
+    gen_msg = await status_target.answer(GENERATION_TEXT)
+    free_msg = None
     if free_tier_notice:
-        await status_target.answer(FREE_NOTICE_TEXT)
+        free_msg = await status_target.answer(FREE_NOTICE_TEXT)
 
     try:
         material, source = await service.get_or_generate_material(user_id=user_id, username=username, topic=topic)
     except Exception:
         logger.exception("Failed to get material for topic: %s", topic)
+        with suppress(Exception):
+            if gen_msg:
+                await gen_msg.delete()
+            if free_msg:
+                await free_msg.delete()
         await status_target.answer(TEMP_UNAVAILABLE_TEXT)
         return
 
@@ -74,6 +81,12 @@ async def _load_topic(
         test_score=0,
         accepting_answer=False,
     )
+
+    with suppress(Exception):
+        if gen_msg:
+            await gen_msg.delete()
+        if free_msg:
+            await free_msg.delete()
 
     if source == "db":
         await status_target.answer(LOADED_DB)
