@@ -3,5 +3,7 @@
 
 class StudyState(StatesGroup):
     awaiting_topic = State()
-    material_ready = State()
-    passing_test = State()
+    in_lesson = State()
+    in_flashcards = State()
+    in_test = State()
+    in_practice = State()

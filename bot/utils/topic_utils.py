@@ -22,5 +22,5 @@ def validate_topic(raw_text: str | None, min_len: int = 2, max_len: int = 200) -
     if len(topic) < min_len:
         return None
     if len(topic) > max_len:
-        topic = topic[:max_len]
+        return None
     return topic

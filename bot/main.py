@@ -9,12 +9,18 @@ from aiohttp import web
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.storage.memory import MemoryStorage
+
+try:
+    from aiogram.fsm.storage.redis import RedisStorage
+except Exception:
+    RedisStorage = None
 from aiogram.types.error_event import ErrorEvent
 
 from bot.config import configure_logging, load_settings
-from bot.handlers.cards import build_router as build_cards_router
-from bot.handlers.lesson import build_router as build_lesson_router
-from bot.handlers.practice import build_router as build_practice_router
+from bot.handlers.flashcards import build_router as build_flashcards_router
+from bot.handlers.profile import build_router as build_profile_router
+from bot.handlers.progress import build_router as build_progress_router
+from bot.handlers.settings import build_router as build_settings_router
 from bot.handlers.start import build_router as build_start_router
 from bot.handlers.study import build_router as build_study_router
 from bot.handlers.tests import build_router as build_tests_router
@@ -49,15 +55,26 @@ async def _run_health_server() -> None:
             await runner.cleanup()
 
 
+def _build_storage():
+    redis_url = os.getenv("REDIS_URL", "").strip()
+    if redis_url and RedisStorage is not None:
+        try:
+            return RedisStorage.from_url(redis_url)
+        except Exception:
+            logger.exception("Failed to initialize RedisStorage, falling back to MemoryStorage")
+    return MemoryStorage()
+
+
 def _build_dispatcher(material_service: MaterialService, lock_manager: UserLockManager, free_tier_notice: bool) -> Dispatcher:
-    dp = Dispatcher(storage=MemoryStorage())
+    dp = Dispatcher(storage=_build_storage())
 
     dp.include_router(build_start_router(material_service, lock_manager))
     dp.include_router(build_study_router(material_service, lock_manager, free_tier_notice))
-    dp.include_router(build_lesson_router(lock_manager))
-    dp.include_router(build_cards_router(lock_manager))
+    dp.include_router(build_flashcards_router(material_service, lock_manager))
     dp.include_router(build_tests_router(material_service, lock_manager))
-    dp.include_router(build_practice_router(lock_manager))
+    dp.include_router(build_progress_router(material_service, lock_manager))
+    dp.include_router(build_profile_router(material_service, lock_manager))
+    dp.include_router(build_settings_router(material_service, lock_manager))
 
     @dp.error()
     async def on_error(event: ErrorEvent) -> None:

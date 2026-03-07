@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+from datetime import datetime
 from typing import Any
 
 import httpx
@@ -124,3 +125,153 @@ class SupabaseService:
             score,
             total,
         )
+
+    def _get_user_stats_sync(self, user_id: int) -> dict[str, Any] | None:
+        response = (
+            self._client.table("user_stats")
+            .select("*")
+            .eq("user_id", user_id)
+            .limit(1)
+            .execute()
+        )
+        if not response.data:
+            return None
+        return response.data[0]
+
+    async def get_user_stats(self, user_id: int) -> dict[str, Any] | None:
+        return await self._to_thread("get_user_stats", self._get_user_stats_sync, user_id)
+
+    def _upsert_user_stats_sync(self, payload: dict[str, Any]) -> Any:
+        user_id = payload.get("user_id")
+        if user_id is None:
+            raise ValueError("user_id is required for user_stats upsert")
+
+        existing = self._get_user_stats_sync(int(user_id))
+        if existing:
+            updated = dict(existing)
+            updated.update(payload)
+            for field in ("tests_passed", "topics_learned", "flashcards_reviewed"):
+                current = int(existing.get(field, 0) or 0)
+                desired = int(payload.get(field, current) or 0)
+                delta = desired - current
+                updated[field] = current + delta
+            return (
+                self._client.table("user_stats")
+                .update(updated)
+                .eq("user_id", int(user_id))
+                .execute()
+            )
+
+        return self._client.table("user_stats").insert(payload).execute()
+
+    async def upsert_user_stats(self, payload: dict[str, Any]) -> None:
+        await self._to_thread("upsert_user_stats", self._upsert_user_stats_sync, payload)
+
+    def _topic_exists_sync(self, user_id: int, topic: str) -> bool:
+        response = (
+            self._client.table("user_topics")
+            .select("topic")
+            .eq("user_id", user_id)
+            .eq("topic", normalize_topic(topic))
+            .limit(1)
+            .execute()
+        )
+        return bool(response.data)
+
+    def _mark_topic_completed_sync(self, user_id: int, topic: str) -> bool:
+        normalized = normalize_topic(topic)
+        payload = {
+            "user_id": user_id,
+            "topic": normalized,
+            "completed_at": datetime.utcnow().isoformat(),
+        }
+        response = (
+            self._client.table("user_topics")
+            .upsert(payload, on_conflict="user_id,topic", ignore_duplicates=True)
+            .execute()
+        )
+        return bool(response.data)
+
+    async def mark_topic_completed(self, user_id: int, topic: str) -> bool:
+        return await self._to_thread("mark_topic_completed", self._mark_topic_completed_sync, user_id, topic)
+
+    def _load_resume_state_sync(self, user_id: int) -> dict[str, Any] | None:
+        response = (
+            self._client.table("user_stats")
+            .select("last_topic,last_stage,card_index,test_index,test_score")
+            .eq("user_id", user_id)
+            .limit(1)
+            .execute()
+        )
+        if not response.data:
+            return None
+        payload = response.data[0]
+        if not payload.get("last_topic"):
+            return None
+        return payload
+
+    async def load_resume_state(self, user_id: int) -> dict[str, Any] | None:
+        return await self._to_thread("load_resume_state", self._load_resume_state_sync, user_id)
+
+    def _save_resume_state_sync(
+        self,
+        *,
+        user_id: int,
+        topic: str,
+        stage: str,
+        card_index: int,
+        test_index: int,
+        test_score: int,
+    ) -> Any:
+        payload = {
+            "user_id": user_id,
+            "last_topic": normalize_topic(topic),
+            "last_stage": stage,
+            "card_index": card_index,
+            "test_index": test_index,
+            "test_score": test_score,
+            "last_updated": datetime.utcnow().isoformat(),
+        }
+        return self._client.table("user_stats").upsert(payload, on_conflict="user_id").execute()
+
+    async def save_resume_state(
+        self,
+        *,
+        user_id: int,
+        topic: str,
+        stage: str,
+        card_index: int,
+        test_index: int,
+        test_score: int,
+    ) -> None:
+        await self._to_thread(
+            "save_resume_state",
+            self._save_resume_state_sync,
+            user_id=user_id,
+            topic=topic,
+            stage=stage,
+            card_index=card_index,
+            test_index=test_index,
+            test_score=test_score,
+        )
+
+    def _reset_user_progress_sync(self, user_id: int) -> Any:
+        self._client.table("user_topics").delete().eq("user_id", user_id).execute()
+        payload = {
+            "user_id": user_id,
+            "topics_learned": 0,
+            "tests_passed": 0,
+            "flashcards_reviewed": 0,
+            "daily_streak": 0,
+            "last_active_date": None,
+            "last_topic": None,
+            "last_stage": None,
+            "card_index": 0,
+            "test_index": 0,
+            "test_score": 0,
+            "last_updated": datetime.utcnow().isoformat(),
+        }
+        return self._client.table("user_stats").upsert(payload, on_conflict="user_id").execute()
+
+    async def reset_user_progress(self, user_id: int) -> None:
+        await self._to_thread("reset_user_progress", self._reset_user_progress_sync, user_id)

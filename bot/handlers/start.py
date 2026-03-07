@@ -1,22 +1,32 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import logging
 
-from aiogram import F, Router
+from aiogram import Router
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
-from bot.handlers.common import show_start_screen
-from bot.keyboards.main_menu import main_menu_kb
-from bot.keyboards.study_menu import profile_kb
 from bot.services.material_service import MaterialService
-from bot.states.study_state import StudyState
+from bot.ui.formatting import SEPARATOR
+from bot.ui.keyboards import create_main_menu
 from bot.utils.locks import UserLockManager
-from bot.utils.strings import PROFILE_TEXT, START_TEXT
-from bot.utils.telegram_utils import edit_or_send
 
 logger = logging.getLogger(__name__)
+
+WELCOME_TEXT = (
+    f"{SEPARATOR}\n"
+    "\U0001F44B \u041F\u0440\u0438\u0432\u0435\u0442! \u042F ExplainlyStudy.\n"
+    f"{SEPARATOR}\n\n"
+    "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0440\u0435\u0436\u0438\u043C \u043E\u0431\u0443\u0447\u0435\u043D\u0438\u044F."
+)
+
+
+async def show_main_menu(target: Message | CallbackQuery, *, text: str | None = None) -> None:
+    message = target.message if isinstance(target, CallbackQuery) else target
+    await message.answer(text or WELCOME_TEXT, reply_markup=create_main_menu())
+    if isinstance(target, CallbackQuery):
+        await target.answer()
 
 
 def build_router(material_service: MaterialService, lock_manager: UserLockManager) -> Router:
@@ -26,23 +36,7 @@ def build_router(material_service: MaterialService, lock_manager: UserLockManage
     async def start_handler(message: Message, state: FSMContext) -> None:
         async with await lock_manager.get(message.from_user.id):
             await material_service.ensure_user(message.from_user.id, message.from_user.username)
-            await state.set_state(StudyState.awaiting_topic)
-            await state.update_data(material=None, topic=None)
-            await show_start_screen(message)
-
-    @router.callback_query(F.data == "back_to_start")
-    async def back_to_start_handler(call: CallbackQuery, state: FSMContext) -> None:
-        async with await lock_manager.get(call.from_user.id):
-            await call.answer()
-            await state.set_state(StudyState.awaiting_topic)
-            await state.update_data(current_stage=None)
-            await edit_or_send(call, START_TEXT, reply_markup=main_menu_kb())
-
-    @router.callback_query(F.data == "profile")
-    async def profile_handler(call: CallbackQuery) -> None:
-        async with await lock_manager.get(call.from_user.id):
-            await call.answer()
-            text = PROFILE_TEXT.format(user_id=call.from_user.id)
-            await edit_or_send(call, text, reply_markup=profile_kb())
+            await state.clear()
+            await show_main_menu(message)
 
     return router
