@@ -37,7 +37,7 @@ class OpenAIService:
         openrouter_model: str,
         groq_api_key: str | None,
         groq_model: str,
-        timeout_seconds: int = 120,
+        timeout_seconds: int = 180,
     ) -> None:
         self._timeout_seconds = timeout_seconds
         self._limiter = get_global_limiter()
@@ -117,14 +117,14 @@ class OpenAIService:
                                 provider.name,
                                 attempt + 1,
                                 attempts,
-                                exc,
+                                repr(exc),
                             )
                             if attempt + 1 < attempts:
                                 await asyncio.sleep(delay)
                                 continue
                             break
 
-                        logger.error("Provider %s failed with non-retryable error: %s", provider.name, exc)
+                        logger.error("Provider %s failed with non-retryable error: %s", provider.name, repr(exc))
                         break
 
             if last_exc is None:
@@ -168,7 +168,8 @@ class OpenAIService:
         temperature: float | None,
         max_tokens: int | None,
     ) -> tuple[str, dict[str, int] | None]:
-        logger.info("LLM request provider=%s model=%s", provider.name, provider.model)
+        effective_model = model or provider.model
+        logger.info("LLM request provider=%s model=%s", provider.name, effective_model)
 
         async def _invoke() -> str:
             return await asyncio.wait_for(
@@ -203,7 +204,7 @@ class OpenAIService:
                 {"role": "user", "content": user_prompt},
             ],
             temperature=temperature if temperature is not None else 0.7,
-            max_tokens=max_tokens if max_tokens is not None else 1500,
+            max_tokens=max_tokens if max_tokens is not None else 900,
         )
         content = response.choices[0].message.content
         if not content:
@@ -224,11 +225,11 @@ class OpenAIService:
 
     @staticmethod
     def _is_retryable(exc: Exception) -> bool:
-        if isinstance(exc, (APITimeoutError, APIConnectionError, RateLimitError, ValueError)):
+        if isinstance(exc, (APITimeoutError, APIConnectionError, RateLimitError)):
             return True
         if isinstance(exc, APIStatusError):
             status = exc.status_code
-            return status == 429 or status >= 500
+            return status == 429
         return False
 
     def _select_providers(self, provider: str | None) -> list[LlmProvider]:
@@ -236,8 +237,6 @@ class OpenAIService:
             providers: list[LlmProvider] = [self._openrouter_provider]
             if self._groq_provider is not None:
                 providers.append(self._groq_provider)
-            # last chance retry on primary provider to handle temporary fallback provider outages
-            providers.append(self._openrouter_provider)
             return providers
 
         provider = provider.strip().lower()

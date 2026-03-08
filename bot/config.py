@@ -49,12 +49,12 @@ def load_settings() -> Settings:
         supabase_key=supabase_key,
         openrouter_api_key=openrouter_api_key,
         groq_api_key=groq_api_key,
-        openrouter_model=os.getenv("OPENROUTER_MODEL", "arcee-ai/trinity-large-preview:free").strip(),
+        openrouter_model=os.getenv("OPENROUTER_MODEL", "qwen/qwen3.5-flash-02-23").strip(),
         groq_model=os.getenv("GROQ_MODEL", "llama-3.1-8b-instant").strip(),
         support_url=os.getenv("SUPPORT_URL", "https://t.me/ligr5").strip(),
         log_level=os.getenv("LOG_LEVEL", "INFO").strip().upper(),
         free_tier_notice=os.getenv("FREE_TIER_NOTICE", "1").strip() != "0",
-        generation_timeout_seconds=int(os.getenv("GENERATION_TIMEOUT_SECONDS", "120").strip()),
+        generation_timeout_seconds=int(os.getenv("GENERATION_TIMEOUT_SECONDS", "180").strip()),
         material_cache_ttl_seconds=int(os.getenv("MATERIAL_CACHE_TTL_SECONDS", "3600").strip()),
     )
 
