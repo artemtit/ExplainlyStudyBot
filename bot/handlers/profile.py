@@ -5,7 +5,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
 from bot.handlers.start import show_main_menu
-from bot.services.material_service import MaterialService
+from bot.learning_engine.engine import LearningEngine
 from bot.ui.formatting import SEPARATOR
 from bot.ui.keyboards import BTN_PROFILE, create_profile_keyboard
 from bot.utils.locks import UserLockManager
@@ -32,7 +32,7 @@ async def _open_profile(target: Message | CallbackQuery) -> None:
         await target.answer(text, reply_markup=create_profile_keyboard())
 
 
-def build_router(material_service: MaterialService, lock_manager: UserLockManager) -> Router:
+def build_router(material_service: LearningEngine, lock_manager: UserLockManager) -> Router:
     router = Router(name="profile")
 
     @router.message(F.text == BTN_PROFILE)

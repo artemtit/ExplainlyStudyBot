@@ -7,7 +7,7 @@ from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
-from bot.services.material_service import MaterialService
+from bot.learning_engine.engine import LearningEngine
 from bot.ui.formatting import SEPARATOR
 from bot.ui.keyboards import create_main_menu
 from bot.utils.locks import UserLockManager
@@ -29,7 +29,7 @@ async def show_main_menu(target: Message | CallbackQuery, *, text: str | None = 
         await target.answer()
 
 
-def build_router(material_service: MaterialService, lock_manager: UserLockManager) -> Router:
+def build_router(material_service: LearningEngine, lock_manager: UserLockManager) -> Router:
     router = Router(name="start")
 
     @router.message(CommandStart())

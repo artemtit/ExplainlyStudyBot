@@ -8,7 +8,7 @@ from aiogram.types import CallbackQuery, Message
 
 from bot.handlers.start import show_main_menu
 from bot.handlers.study import maybe_save_resume_state, render_lesson
-from bot.services.material_service import MaterialService
+from bot.learning_engine.engine import LearningEngine
 from bot.states.study_state import StudyState
 from bot.ui.formatting import SEPARATOR, format_no_resume, format_practice, format_test_question, format_test_result
 from bot.ui.keyboards import (
@@ -134,7 +134,7 @@ def _append_wrong_test(
 async def _ensure_material(
     source: Message | CallbackQuery,
     state: FSMContext,
-    service: MaterialService,
+    service: LearningEngine,
 ) -> tuple[dict, str] | None:
     data = await state.get_data()
     material = data.get("material")
@@ -184,7 +184,7 @@ async def _ensure_material(
     return material, topic
 
 
-async def _render_question(target: Message | CallbackQuery, state: FSMContext, service: MaterialService) -> None:
+async def _render_question(target: Message | CallbackQuery, state: FSMContext, service: LearningEngine) -> None:
     payload = await _ensure_material(target, state, service)
     if payload is None:
         return
@@ -252,7 +252,7 @@ async def _render_question(target: Message | CallbackQuery, state: FSMContext, s
 async def open_test(
     target: Message | CallbackQuery,
     state: FSMContext,
-    service: MaterialService,
+    service: LearningEngine,
     *,
     reset_progress: bool,
 ) -> None:
@@ -295,7 +295,7 @@ async def open_test(
 async def open_practice(
     target: Message | CallbackQuery,
     state: FSMContext,
-    service: MaterialService,
+    service: LearningEngine,
     *,
     show_solution: bool,
 ) -> None:
@@ -327,7 +327,7 @@ async def open_practice(
     await _send(target, text, reply_markup=create_practice_keyboard(show_solution=show_solution))
 
 
-def build_router(material_service: MaterialService, lock_manager: UserLockManager) -> Router:
+def build_router(material_service: LearningEngine, lock_manager: UserLockManager) -> Router:
     router = Router(name="tests")
 
     @router.message(F.text == BTN_TEST)

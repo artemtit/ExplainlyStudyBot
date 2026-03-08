@@ -7,10 +7,10 @@ from contextlib import suppress
 from aiogram import F, Router
 from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import BufferedInputFile, CallbackQuery, Message
 
 from bot.handlers.start import show_main_menu
-from bot.services.material_service import MaterialService
+from bot.learning_engine.engine import LearningEngine
 from bot.states.study_state import StudyState
 from bot.ui.formatting import SEPARATOR, format_lesson, format_no_resume, format_topic_prompt
 from bot.ui.keyboards import (
@@ -23,6 +23,8 @@ from bot.ui.keyboards import (
     create_lesson_keyboard,
 )
 from bot.utils.locks import UserLockManager
+from bot.utils.formula_detector import contains_formula
+from bot.utils.lesson_image import render_lesson_image
 from bot.utils.strings import FREE_NOTICE_TEXT, GENERATION_TEXT, TEMP_UNAVAILABLE_TEXT
 from bot.utils.telegram_utils import edit_or_send
 from bot.utils.text_format import split_text_by_limit
@@ -38,7 +40,7 @@ RATE_LIMIT_TEXT = (
 )
 
 
-async def render_lesson(target: Message | CallbackQuery, state: FSMContext, service: MaterialService) -> None:
+async def render_lesson(target: Message | CallbackQuery, state: FSMContext, service: LearningEngine) -> None:
     data = await state.get_data()
     material = data.get("material")
     topic = data.get("topic")
@@ -49,21 +51,36 @@ async def render_lesson(target: Message | CallbackQuery, state: FSMContext, serv
 
     lesson = material.get("lesson", {}) if isinstance(material.get("lesson"), dict) else {}
     text = format_lesson(topic, lesson)
-    chunks = split_text_by_limit(text, limit=3600)
-    if not chunks:
-        chunks = [text]
-
     if isinstance(target, CallbackQuery):
-        await edit_or_send(target, chunks[0], reply_markup=create_lesson_keyboard())
         message = target.message
         user_id = target.from_user.id
     else:
-        await target.answer(chunks[0], reply_markup=create_lesson_keyboard())
         message = target
         user_id = target.from_user.id
 
-    for chunk in chunks[1:]:
-        await message.answer(chunk)
+    if message is None:
+        await show_main_menu(target)
+        await state.clear()
+        return
+
+    if contains_formula(text):
+        image = render_lesson_image(text)
+        await message.answer_photo(
+            photo=BufferedInputFile(image.read(), filename="lesson.png"),
+            reply_markup=create_lesson_keyboard(),
+        )
+    else:
+        chunks = split_text_by_limit(text, limit=3600)
+        if not chunks:
+            chunks = [text]
+
+        if isinstance(target, CallbackQuery):
+            await edit_or_send(target, chunks[0], reply_markup=create_lesson_keyboard())
+        else:
+            await target.answer(chunks[0], reply_markup=create_lesson_keyboard())
+
+        for chunk in chunks[1:]:
+            await message.answer(chunk)
 
     await state.set_state(StudyState.in_lesson)
     await state.update_data(flash_show_answer=False, practice_show_solution=False)
@@ -86,7 +103,7 @@ async def render_lesson(target: Message | CallbackQuery, state: FSMContext, serv
 
 async def maybe_save_resume_state(
     state: FSMContext,
-    service: MaterialService,
+    service: LearningEngine,
     *,
     user_id: int,
     topic: str,
@@ -134,7 +151,7 @@ async def _load_topic(
     topic: str,
     sender: Message | CallbackQuery,
     state: FSMContext,
-    service: MaterialService,
+    service: LearningEngine,
     free_tier_notice: bool,
 ) -> bool:
     user = sender.from_user
@@ -149,7 +166,7 @@ async def _load_topic(
         free_msg = await status_target.answer(FREE_NOTICE_TEXT)
 
     try:
-        material, _ = await service.get_or_generate_material(user_id=user_id, username=username, topic=topic)
+        material, _ = await service.start_lesson(user_id, topic, username=username)
     except Exception:
         logger.exception("Failed to get material for topic: %s", topic)
         with suppress(Exception):
@@ -190,7 +207,7 @@ async def _resume_flow(
     *,
     message: Message,
     state: FSMContext,
-    service: MaterialService,
+    service: LearningEngine,
 ) -> None:
     resume = await service.load_resume_state(message.from_user.id)
     if not resume:
@@ -248,7 +265,7 @@ async def _resume_flow(
     await render_lesson(message, state, service)
 
 
-def build_router(material_service: MaterialService, lock_manager: UserLockManager, free_tier_notice: bool) -> Router:
+def build_router(material_service: LearningEngine, lock_manager: UserLockManager, free_tier_notice: bool) -> Router:
     router = Router(name="study")
 
     @router.message(F.text == BTN_START_LEARNING)

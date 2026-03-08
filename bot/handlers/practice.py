@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
@@ -55,7 +55,7 @@ def build_router(lock_manager: UserLockManager) -> Router:
             if not isinstance(practice, dict):
                 practice = {}
 
-            solution = str(practice.get("solution") or "—")
+            solution = str(practice.get("solution") or "�")
             header = format_stage_header(topic, "practice")
             await edit_or_send(call, f"{header}\n\n{SOLUTION_TEXT.format(solution=solution)}", reply_markup=stage_nav_kb("practice"))
 

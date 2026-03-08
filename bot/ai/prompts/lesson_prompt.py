@@ -1,0 +1,45 @@
+from __future__ import annotations
+
+from bot.ai.prompts.base import PromptTemplate
+
+
+class LessonPrompt(PromptTemplate):
+    name = "lesson_generation"
+    version = "1.0"
+
+    def __init__(self) -> None:
+        super().__init__(
+            name=self.name,
+            version=self.version,
+            system_template=(
+                "\u0422\u044b \u2014 \u0441\u0442\u0440\u043e\u0433\u0438\u0439 \u043e\u0431\u0443\u0447\u0430\u044e\u0449\u0438\u0439 \u0430\u0441\u0441\u0438\u0441\u0442\u0435\u043d\u0442. "
+                "\u0412\u0435\u0440\u043d\u0438 \u0442\u043e\u043b\u044c\u043a\u043e JSON \u0441\u0442\u0440\u043e\u0433\u043e \u043f\u043e \u0441\u0445\u0435\u043c\u0435. "
+                "\u0411\u0435\u0437 markdown \u0438 \u0431\u0435\u0437 \u043b\u044e\u0431\u043e\u0433\u043e \u0442\u0435\u043a\u0441\u0442\u0430 \u0432\u043d\u0435 JSON. "
+                "\u0421\u0442\u0440\u043e\u0433\u0430\u044f \u0441\u0442\u0440\u0443\u043a\u0442\u0443\u0440\u0430: "
+                "{{lesson:{{title:string,sections:[{{header:string,text:string,key_points:[string],formula:string|null}}]}}}},"
+                "cards:[{question:string,answer:string}],"
+                "tests:[{question:string,options:[string,string,string,string],correct:string,explanation:string}],"
+                "practice:{problem:string,solution:string}}. "
+                "\u0420\u043e\u0432\u043d\u043e 5 \u043a\u0430\u0440\u0442\u043e\u0447\u0435\u043a, 5 \u0442\u0435\u0441\u0442\u043e\u0432, 4 \u0432\u0430\u0440\u0438\u0430\u043d\u0442\u0430 \u043e\u0442\u0432\u0435\u0442\u0430, correct \u0442\u043e\u043b\u044c\u043a\u043e A/B/C/D, \u0432 \u043a\u0430\u0436\u0434\u043e\u043c \u0442\u0435\u0441\u0442\u0435 \u0434\u0430\u0439 \u043a\u043e\u0440\u043e\u0442\u043a\u043e\u0435 explanation.\n"
+                "\u041c\u0438\u043d\u0438-\u0443\u0440\u043e\u043a \u0434\u043e\u043b\u0436\u0435\u043d \u0431\u044b\u0442\u044c \u043a\u0440\u0430\u0442\u043a\u0438\u043c.\n"
+                "\u041e\u0433\u0440\u0430\u043d\u0438\u0447\u0435\u043d\u0438\u044f:\n"
+                "\u2022 \u043c\u0430\u043a\u0441\u0438\u043c\u0443\u043c 4 \u0440\u0430\u0437\u0434\u0435\u043b\u0430\n"
+                "\u2022 \u043a\u0430\u0436\u0434\u044b\u0439 \u0440\u0430\u0437\u0434\u0435\u043b \u2264 3 \u043f\u0440\u0435\u0434\u043b\u043e\u0436\u0435\u043d\u0438\u044f\n"
+                "\u2022 \u0444\u043e\u0440\u043c\u0443\u043b\u044b \u043f\u0438\u0441\u0430\u0442\u044c \u043d\u0430 \u043d\u043e\u0432\u043e\u0439 \u0441\u0442\u0440\u043e\u043a\u0435\n"
+                "\u2022 \u043d\u0435 \u0431\u043e\u043b\u0435\u0435 800 \u0441\u043b\u043e\u0432\n"
+                "\u2022 \u0442\u0435\u043a\u0441\u0442 \u0434\u043e\u043b\u0436\u0435\u043d \u043f\u043e\u043c\u0435\u0449\u0430\u0442\u044c\u0441\u044f \u043d\u0430 \u043e\u0434\u043d\u043e\u043c \u0438\u0437\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u0438\u0438"
+            ),
+            user_template=(
+                "\u0422\u0435\u043c\u0430: {topic}\n"
+                "\u0421\u0433\u0435\u043d\u0435\u0440\u0438\u0440\u0443\u0439 \u043a\u0440\u0430\u0442\u043a\u0438\u0439 \u0443\u0440\u043e\u043a, \u043a\u0430\u0440\u0442\u043e\u0447\u043a\u0438, \u0442\u0435\u0441\u0442 \u0438 \u043e\u0434\u043d\u0443 \u043f\u0440\u0430\u043a\u0442\u0438\u043a\u0443."
+            ),
+            metadata={
+                "type": "lesson",
+                "language": "ru",
+                "temperature": 0.7,
+                "max_tokens": 500,
+            },
+        )
+
+
+__all__ = ["LessonPrompt"]

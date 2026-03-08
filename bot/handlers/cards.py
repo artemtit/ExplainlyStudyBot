@@ -1,4 +1,4 @@
-ï»¿from __future__ import annotations
+from __future__ import annotations
 
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
@@ -35,7 +35,7 @@ async def _render_card(call: CallbackQuery, state: FSMContext) -> None:
         return
 
     card = cards[index] if isinstance(cards[index], dict) else {}
-    question = str(card.get("question") or "â€”")
+    question = str(card.get("question") or "—")
     body = CARD_QUESTION_TEMPLATE.format(pos=index + 1, total=len(cards), question=question)
     await edit_or_send(call, f"{header}\n\n{body}", reply_markup=card_question_kb())
 
@@ -78,7 +78,7 @@ def build_router(lock_manager: UserLockManager) -> Router:
                 return
 
             card = cards[index] if isinstance(cards[index], dict) else {}
-            answer = str(card.get("answer") or "â€”")
+            answer = str(card.get("answer") or "—")
             body = CARD_ANSWER_TEMPLATE.format(pos=index + 1, total=len(cards), answer=answer)
             await edit_or_send(call, f"{header}\n\n{body}", reply_markup=card_answer_kb())
 

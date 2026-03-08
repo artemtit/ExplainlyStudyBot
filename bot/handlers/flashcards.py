@@ -8,7 +8,7 @@ from aiogram.types import CallbackQuery, Message
 
 from bot.handlers.start import show_main_menu
 from bot.handlers.study import maybe_save_resume_state, render_lesson
-from bot.services.material_service import MaterialService
+from bot.learning_engine.engine import LearningEngine
 from bot.states.study_state import StudyState
 from bot.ui.formatting import SEPARATOR, format_flashcard, format_no_resume
 from bot.ui.keyboards import BTN_FLASHCARDS, create_flashcards_keyboard, create_lesson_keyboard
@@ -28,7 +28,7 @@ async def _send(target: Message | CallbackQuery, text: str, *, reply_markup) -> 
 async def _ensure_material(
     source: Message | CallbackQuery,
     state: FSMContext,
-    service: MaterialService,
+    service: LearningEngine,
 ) -> tuple[dict, str] | None:
     data = await state.get_data()
     material = data.get("material")
@@ -72,7 +72,7 @@ async def _ensure_material(
     return material, topic
 
 
-async def _render_card(target: Message | CallbackQuery, state: FSMContext, service: MaterialService) -> None:
+async def _render_card(target: Message | CallbackQuery, state: FSMContext, service: LearningEngine) -> None:
     payload = await _ensure_material(target, state, service)
     if payload is None:
         return
@@ -115,7 +115,7 @@ async def _render_card(target: Message | CallbackQuery, state: FSMContext, servi
 async def open_flashcards(
     target: Message | CallbackQuery,
     state: FSMContext,
-    service: MaterialService,
+    service: LearningEngine,
     *,
     reset_index: bool,
 ) -> None:
@@ -146,7 +146,7 @@ async def open_flashcards(
     await _render_card(target, state, service)
 
 
-def build_router(material_service: MaterialService, lock_manager: UserLockManager) -> Router:
+def build_router(material_service: LearningEngine, lock_manager: UserLockManager) -> Router:
     router = Router(name="flashcards")
 
     @router.message(F.text == BTN_FLASHCARDS)

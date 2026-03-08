@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext

@@ -24,9 +24,15 @@ from bot.handlers.settings import build_router as build_settings_router
 from bot.handlers.start import build_router as build_start_router
 from bot.handlers.study import build_router as build_study_router
 from bot.handlers.tests import build_router as build_tests_router
-from bot.services.material_service import MaterialService
-from bot.services.openai_service import OpenAIService
-from bot.services.supabase_service import SupabaseService
+from bot.ai.content_generator import AiContentGenerator
+from bot.ai.llm_client import OpenAIService
+from bot.infrastructure.redis_cache import RedisMaterialCache
+from bot.infrastructure.material_repository import SupabaseMaterialRepository
+from bot.infrastructure.progress_repository import SupabaseProgressRepository
+from bot.infrastructure.stats_repository import SupabaseStatsRepository
+from bot.infrastructure.supabase_client import create_supabase_client
+from bot.infrastructure.user_repository import SupabaseUserRepository
+from bot.learning_engine.engine import LearningEngine
 from bot.utils.locks import UserLockManager
 
 logger = logging.getLogger(__name__)
@@ -65,16 +71,16 @@ def _build_storage():
     return MemoryStorage()
 
 
-def _build_dispatcher(material_service: MaterialService, lock_manager: UserLockManager, free_tier_notice: bool) -> Dispatcher:
+def _build_dispatcher(learning_engine: LearningEngine, lock_manager: UserLockManager, free_tier_notice: bool) -> Dispatcher:
     dp = Dispatcher(storage=_build_storage())
 
-    dp.include_router(build_start_router(material_service, lock_manager))
-    dp.include_router(build_study_router(material_service, lock_manager, free_tier_notice))
-    dp.include_router(build_flashcards_router(material_service, lock_manager))
-    dp.include_router(build_tests_router(material_service, lock_manager))
-    dp.include_router(build_progress_router(material_service, lock_manager))
-    dp.include_router(build_profile_router(material_service, lock_manager))
-    dp.include_router(build_settings_router(material_service, lock_manager))
+    dp.include_router(build_start_router(learning_engine, lock_manager))
+    dp.include_router(build_study_router(learning_engine, lock_manager, free_tier_notice))
+    dp.include_router(build_flashcards_router(learning_engine, lock_manager))
+    dp.include_router(build_tests_router(learning_engine, lock_manager))
+    dp.include_router(build_progress_router(learning_engine, lock_manager))
+    dp.include_router(build_profile_router(learning_engine, lock_manager))
+    dp.include_router(build_settings_router(learning_engine, lock_manager))
 
     @dp.error()
     async def on_error(event: ErrorEvent) -> None:
@@ -104,16 +110,25 @@ async def run_async() -> None:
         groq_model=settings.groq_model,
         timeout_seconds=settings.generation_timeout_seconds,
     )
-    supabase_service = SupabaseService(settings.supabase_url, settings.supabase_key)
-    material_service = MaterialService(
-        llm_service=openai_service,
-        supabase_service=supabase_service,
-        cache_ttl_seconds=settings.material_cache_ttl_seconds,
+    supabase_client = create_supabase_client(settings.supabase_url, settings.supabase_key)
+    user_repo = SupabaseUserRepository(supabase_client)
+    material_repo = SupabaseMaterialRepository(supabase_client)
+    progress_repo = SupabaseProgressRepository(supabase_client)
+    stats_repo = SupabaseStatsRepository(supabase_client)
+    content_generator = AiContentGenerator(openai_service)
+    cache = RedisMaterialCache.from_env(ttl_seconds=settings.material_cache_ttl_seconds)
+    learning_engine = LearningEngine(
+        content_generator=content_generator,
+        material_repo=material_repo,
+        user_repo=user_repo,
+        progress_repo=progress_repo,
+        stats_repo=stats_repo,
+        cache=cache,
     )
     lock_manager = UserLockManager()
 
     bot = Bot(token=settings.telegram_token, default=DefaultBotProperties())
-    dp = _build_dispatcher(material_service, lock_manager, settings.free_tier_notice)
+    dp = _build_dispatcher(learning_engine, lock_manager, settings.free_tier_notice)
 
     health_task = asyncio.create_task(_run_health_server())
     try:
@@ -126,6 +141,8 @@ async def run_async() -> None:
             await health_task
         with suppress(Exception):
             await bot.session.close()
+        with suppress(Exception):
+            await cache.close()
 
 
 def run() -> None:
