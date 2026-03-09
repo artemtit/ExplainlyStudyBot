@@ -50,7 +50,7 @@ def load_settings() -> Settings:
         openrouter_api_key=openrouter_api_key,
         groq_api_key=groq_api_key,
         openrouter_model=os.getenv("OPENROUTER_MODEL", "qwen/qwen3.5-flash-02-23").strip(),
-        groq_model=os.getenv("GROQ_MODEL", "llama-3.1-8b-instant").strip(),
+        groq_model=os.getenv("GROQ_MODEL", "mixtral-8x7b-32768").strip(),
         support_url=os.getenv("SUPPORT_URL", "https://t.me/ligr5").strip(),
         log_level=os.getenv("LOG_LEVEL", "INFO").strip().upper(),
         free_tier_notice=os.getenv("FREE_TIER_NOTICE", "1").strip() != "0",

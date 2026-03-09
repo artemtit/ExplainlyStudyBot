@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import time
 from dataclasses import dataclass
 from typing import Callable, TypeVar
@@ -125,6 +126,12 @@ class LLMRouter:
                         if usage:
                             usage_holder.update(usage)
 
+                    logger.info(
+                        "LLM request prompt=%s provider=%s model=%s",
+                        prompt.name,
+                        provider_name,
+                        route_model,
+                    )
                     result = await asyncio.wait_for(
                         client.generate_json(
                             system_prompt=prompt.system,
@@ -252,8 +259,8 @@ class LLMRouter:
     @staticmethod
     def _cap_max_tokens(max_tokens: int | None) -> int:
         if max_tokens is None:
-            return 900
-        return min(max_tokens, 900)
+            return 2000
+        return min(max_tokens, 2000)
 
     @staticmethod
     def _parse_with_recovery(raw: str, parse_response: Callable[[str], T]) -> T:
@@ -270,15 +277,20 @@ class LLMRouter:
     @staticmethod
     def _recover_json_candidates(raw: str) -> list[str]:
         candidates: list[str] = []
+        seen: set[str] = set()
         stripped = raw.replace("```json", "").replace("```", "").strip()
 
         def add_candidate(value: str) -> None:
-            if value.strip():
-                candidates.append(value)
+            if not value.strip():
+                return
+            if value in seen:
+                return
+            seen.add(value)
+            candidates.append(value)
 
         cleaned = clean_trailing_commas(stripped)
-        if cleaned.strip() and cleaned != stripped:
-            add_candidate(cleaned)
+        add_candidate(cleaned)
+
         extracted = extract_json_object(cleaned)
         if extracted and extracted.strip():
             add_candidate(extracted)
@@ -289,36 +301,38 @@ class LLMRouter:
 
     @staticmethod
     def _default_rules() -> dict[str, RoutingRule]:
+        primary_model = os.getenv("OPENROUTER_MODEL", "qwen/qwen3.5-flash-02-23").strip()
+        fallback_model = os.getenv("GROQ_MODEL", "mixtral-8x7b-32768").strip()
         return {
             "lesson_generation": RoutingRule(
                 primary_provider="openrouter",
-                primary_model="qwen/qwen3.5-flash-02-23",
+                primary_model=primary_model,
                 fallback_provider="groq",
-                fallback_model="meta-llama/llama-3.1-70b-instruct",
+                fallback_model=fallback_model,
             ),
             "tests_generation": RoutingRule(
                 primary_provider="openrouter",
-                primary_model="qwen/qwen3.5-flash-02-23",
+                primary_model=primary_model,
                 fallback_provider="groq",
-                fallback_model="meta-llama/llama-3.1-70b-instruct",
+                fallback_model=fallback_model,
             ),
             "flashcards_generation": RoutingRule(
                 primary_provider="openrouter",
-                primary_model="qwen/qwen3.5-flash-02-23",
+                primary_model=primary_model,
                 fallback_provider="groq",
-                fallback_model="meta-llama/llama-3.1-70b-instruct",
+                fallback_model=fallback_model,
             ),
             "test_generation": RoutingRule(
                 primary_provider="openrouter",
-                primary_model="qwen/qwen3.5-flash-02-23",
+                primary_model=primary_model,
                 fallback_provider="groq",
-                fallback_model="meta-llama/llama-3.1-70b-instruct",
+                fallback_model=fallback_model,
             ),
             "card_generation": RoutingRule(
                 primary_provider="openrouter",
-                primary_model="qwen/qwen3.5-flash-02-23",
+                primary_model=primary_model,
                 fallback_provider="groq",
-                fallback_model="meta-llama/llama-3.1-70b-instruct",
+                fallback_model=fallback_model,
             ),
         }
 
