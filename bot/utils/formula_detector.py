@@ -1,18 +1,20 @@
-import re
-
-FORMULA_PATTERNS = [
-    r"\\\\frac",
-    r"\\\\sqrt",
-    r"\\^",
-    r"_",
-    r"?",
-    r"?",
-    r"?",
+MATH_TOKENS = [
+    "^",
+    "=",
+    "sqrt",
+    "√",
+    "/",
+    "+",
+    "-",
+    "*",
 ]
 
 
 def contains_formula(text: str) -> bool:
-    for pattern in FORMULA_PATTERNS:
-        if re.search(pattern, text):
+    if not text:
+        return False
+    text_lower = text.lower()
+    for token in MATH_TOKENS:
+        if token in text_lower:
             return True
     return False

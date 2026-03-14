@@ -12,7 +12,7 @@ from aiogram.types import BufferedInputFile, CallbackQuery, Message
 from bot.handlers.start import show_main_menu
 from bot.learning_engine.engine import LearningEngine
 from bot.states.study_state import StudyState
-from bot.ui.formatting import SEPARATOR, format_lesson, format_no_resume, format_topic_prompt
+from bot.ui.formatting import SEPARATOR, format_explanation_prompt, format_lesson, format_no_resume, format_topic_prompt
 from bot.ui.keyboards import (
     BTN_CONTINUE,
     BTN_FLASHCARDS,
@@ -20,11 +20,12 @@ from bot.ui.keyboards import (
     BTN_PROGRESS,
     BTN_START_LEARNING,
     BTN_TEST,
+    create_explanation_level_keyboard,
     create_lesson_keyboard,
 )
 from bot.utils.locks import UserLockManager
 from bot.utils.formula_detector import contains_formula
-from bot.utils.lesson_image import render_lesson_image
+from bot.utils.formula_renderer import render_formula_image
 from bot.utils.strings import FREE_NOTICE_TEXT, GENERATION_TEXT, TEMP_UNAVAILABLE_TEXT
 from bot.utils.telegram_utils import edit_or_send
 from bot.utils.text_format import split_text_by_limit
@@ -58,29 +59,52 @@ async def render_lesson(target: Message | CallbackQuery, state: FSMContext, serv
         message = target
         user_id = target.from_user.id
 
+    sender = message
+    delete_original = isinstance(target, CallbackQuery) and target.message
+
+    async def delete_original_message() -> None:
+        nonlocal delete_original
+        if delete_original:
+            with suppress(Exception):
+                await target.message.delete()
+            delete_original = False
+
     if message is None:
         await show_main_menu(target)
         await state.clear()
         return
 
     if contains_formula(text):
-        image = render_lesson_image(text)
-        await message.answer_photo(
-            photo=BufferedInputFile(image.read(), filename="lesson.png"),
-            reply_markup=create_lesson_keyboard(),
-        )
+        images = render_formula_image(text)
+        if isinstance(images, list):
+            for idx, image in enumerate(images):
+                if idx == 0:
+                    await delete_original_message()
+                markup = create_lesson_keyboard() if idx == len(images) - 1 else None
+                await sender.answer_photo(
+                    photo=BufferedInputFile(image, filename=f"lesson_{idx + 1}.png"),
+                    reply_markup=markup,
+                )
+        else:
+            await delete_original_message()
+            await sender.answer_photo(
+                photo=BufferedInputFile(images, filename="lesson.png"),
+                reply_markup=create_lesson_keyboard(),
+            )
     else:
         chunks = split_text_by_limit(text, limit=3600)
         if not chunks:
             chunks = [text]
 
         if isinstance(target, CallbackQuery):
+            await delete_original_message()
             await edit_or_send(target, chunks[0], reply_markup=create_lesson_keyboard())
         else:
-            await target.answer(chunks[0], reply_markup=create_lesson_keyboard())
+            await delete_original_message()
+            await sender.answer(chunks[0], reply_markup=create_lesson_keyboard())
 
         for chunk in chunks[1:]:
-            await message.answer(chunk)
+            await sender.answer(chunk)
 
     await state.set_state(StudyState.in_lesson)
     await state.update_data(flash_show_answer=False, practice_show_solution=False)
@@ -149,6 +173,7 @@ async def maybe_save_resume_state(
 async def _load_topic(
     *,
     topic: str,
+    explanation_level: str | None,
     sender: Message | CallbackQuery,
     state: FSMContext,
     service: LearningEngine,
@@ -166,7 +191,12 @@ async def _load_topic(
         free_msg = await status_target.answer(FREE_NOTICE_TEXT)
 
     try:
-        material, _ = await service.start_lesson(user_id, topic, username=username)
+        material, _ = await service.start_lesson(
+            user_id,
+            topic,
+            username=username,
+            explanation_level=explanation_level,
+        )
     except Exception:
         logger.exception("Failed to get material for topic: %s", topic)
         with suppress(Exception):
@@ -181,6 +211,7 @@ async def _load_topic(
     await state.update_data(
         topic=topic,
         material=material,
+        explanation_level=explanation_level,
         card_index=0,
         test_index=0,
         test_score=0,
@@ -292,16 +323,37 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
             if not topic:
                 await message.answer(format_topic_prompt())
                 return
-            now = time.monotonic()
-            last = _LAST_GEN_AT.get(message.from_user.id, 0.0)
-            if now - last < GEN_RATE_LIMIT_SECONDS:
-                await message.answer(RATE_LIMIT_TEXT)
-                return
-            _LAST_GEN_AT[message.from_user.id] = now
+            await state.set_state(StudyState.awaiting_explanation_level)
+            await state.update_data(topic=topic)
+            await message.answer(format_explanation_prompt(topic), reply_markup=create_explanation_level_keyboard())
 
+    @router.callback_query(StateFilter(StudyState.awaiting_explanation_level), F.data.startswith("explain_level:"))
+    async def explanation_level_handler(call: CallbackQuery, state: FSMContext) -> None:
+        async with await lock_manager.get(call.from_user.id):
+            data = await state.get_data()
+            topic = str(data.get("topic") or "")
+            if not topic:
+                await state.set_state(StudyState.awaiting_topic)
+                await call.message.answer(format_topic_prompt())
+                return
+
+            level_raw = (call.data or "").split(":", 1)[-1]
+            explanation_level = level_raw if level_raw in {"simple", "normal", "hard"} else "normal"
+
+            now = time.monotonic()
+            last = _LAST_GEN_AT.get(call.from_user.id, 0.0)
+            if now - last < GEN_RATE_LIMIT_SECONDS:
+                await call.message.answer(RATE_LIMIT_TEXT)
+                return
+            if len(_LAST_GEN_AT) > 10000:
+                _LAST_GEN_AT.clear()
+            _LAST_GEN_AT[call.from_user.id] = now
+
+            await state.update_data(explanation_level=explanation_level)
             await _load_topic(
                 topic=topic,
-                sender=message,
+                explanation_level=explanation_level,
+                sender=call,
                 state=state,
                 service=material_service,
                 free_tier_notice=free_tier_notice,

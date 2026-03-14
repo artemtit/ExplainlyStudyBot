@@ -1,12 +1,16 @@
 ﻿from __future__ import annotations
 
 import json
+import logging
 import re
 from typing import Any
 
 
 class JsonParseError(ValueError):
     """Raised when JSON cannot be recovered from model output."""
+
+
+logger = logging.getLogger(__name__)
 
 
 def strip_code_fences(text: str) -> str:
@@ -16,6 +20,15 @@ def strip_code_fences(text: str) -> str:
         if len(lines) >= 2:
             return "\n".join(lines[1:-1]).strip()
     return payload
+
+
+def clean_json_payload(text: str) -> str:
+    clean = text.replace("```json", "").replace("```", "")
+    start = clean.find("{")
+    end = clean.rfind("}")
+    if start >= 0 and end >= 0 and end >= start:
+        clean = clean[start : end + 1]
+    return clean.strip()
 
 
 def clean_trailing_commas(text: str) -> str:
@@ -137,9 +150,14 @@ def safe_json_parse(raw: str) -> dict[str, Any]:
     if not text:
         raise JsonParseError("Empty model response")
 
-    candidates: list[str] = [text]
-    cleaned = clean_trailing_commas(text)
-    if cleaned != text:
+    clean = clean_json_payload(text) or text
+    logger.debug("Cleaned JSON: %s", clean)
+
+    candidates: list[str] = [clean]
+    if clean != text:
+        candidates.append(text)
+    cleaned = clean_trailing_commas(clean)
+    if cleaned != clean:
         candidates.append(cleaned)
 
     extracted = extract_json_object(cleaned)
@@ -148,8 +166,8 @@ def safe_json_parse(raw: str) -> dict[str, Any]:
         candidates.append(balance_delimiters(clean_trailing_commas(extracted)))
 
     # Recover from occasional smart quotes
-    if "“" in text or "”" in text:
-        normalized_quotes = text.replace("“", '"').replace("”", '"')
+    if "“" in clean or "”" in clean:
+        normalized_quotes = clean.replace("“", '"').replace("”", '"')
         candidates.append(normalized_quotes)
 
     seen: set[str] = set()

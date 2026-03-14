@@ -23,8 +23,14 @@ class MaterialService:
         user_id: int,
         username: str | None,
         topic: str,
+        explanation_level: str | None = None,
     ) -> tuple[dict[str, Any], str]:
-        return await self._engine.get_or_generate_material(user_id=user_id, username=username, topic=topic)
+        return await self._engine.get_or_generate_material(
+            user_id=user_id,
+            username=username,
+            topic=topic,
+            explanation_level=explanation_level,
+        )
 
     async def generate_tests(self, topic: str, difficulty: str):
         return await self._engine.generate_tests(topic, difficulty)

@@ -30,6 +30,9 @@ BTN_SHOW_SOLUTION = "\U0001F9E0 \u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C
 
 BTN_SETTINGS_NOTIFICATIONS = "\U0001F514 \u0423\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u044F"
 BTN_SETTINGS_RESET = "\u26A0 \u0421\u0431\u0440\u043E\u0441\u0438\u0442\u044C \u043F\u0440\u043E\u0433\u0440\u0435\u0441\u0441"
+BTN_EXPLAIN_SIMPLE = "\u041e\u0447\u0435\u043d\u044c \u043f\u0440\u043e\u0441\u0442\u043e"
+BTN_EXPLAIN_NORMAL = "\u041d\u043e\u0440\u043c\u0430\u043b\u044c\u043d\u043e"
+BTN_EXPLAIN_HARD = "\u0421\u043b\u043e\u0436\u043d\u043e"
 
 
 def _reply_button(text: str) -> KeyboardButton:
@@ -145,4 +148,13 @@ def create_practice_keyboard(*, show_solution: bool) -> InlineKeyboardMarkup:
     if not show_solution:
         keyboard.append([_inline_button(BTN_SHOW_SOLUTION, "practice:show")])
     keyboard.append([_inline_button(BTN_BACK, "practice:back")])
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+
+def create_explanation_level_keyboard() -> InlineKeyboardMarkup:
+    keyboard = [
+        [_inline_button(BTN_EXPLAIN_SIMPLE, "explain_level:simple")],
+        [_inline_button(BTN_EXPLAIN_NORMAL, "explain_level:normal")],
+        [_inline_button(BTN_EXPLAIN_HARD, "explain_level:hard")],
+    ]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)

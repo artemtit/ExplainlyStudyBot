@@ -73,12 +73,19 @@ class LearningEngine:
         self._spaced = spaced_repetition or SpacedRepetition()
         self._tracker = progress_tracker or ProgressTracker(progress_repo, stats_repo)
 
-    async def start_lesson(self, user_id: int, topic: str, username: str | None = None) -> tuple[dict[str, Any], str]:
+    async def start_lesson(
+        self,
+        user_id: int,
+        topic: str,
+        username: str | None = None,
+        *,
+        explanation_level: str | None = None,
+    ) -> tuple[dict[str, Any], str]:
         normalized_topic = normalize_topic(topic)
         await self.ensure_user(user_id, username)
         await self._safe_save_request(user_id, normalized_topic)
 
-        material, source = await self._get_or_generate_material(normalized_topic)
+        material, source = await self._get_or_generate_material(normalized_topic, explanation_level=explanation_level)
         await self._tracker.start_session(user_id, normalized_topic)
         return material, source
 
@@ -150,13 +157,14 @@ class LearningEngine:
         user_id: int,
         username: str | None,
         topic: str,
+        explanation_level: str | None = None,
     ) -> tuple[dict[str, Any], str]:
         normalized_topic = normalize_topic(topic)
         await self.ensure_user(user_id, username)
         await self._safe_save_request(user_id, normalized_topic)
-        return await self._get_or_generate_material(normalized_topic)
+        return await self._get_or_generate_material(normalized_topic, explanation_level=explanation_level)
 
-    async def _get_or_generate_material(self, topic: str) -> tuple[dict[str, Any], str]:
+    async def _get_or_generate_material(self, topic: str, *, explanation_level: str | None = None) -> tuple[dict[str, Any], str]:
         cached = await self._load_from_cache(topic)
         if cached is not None:
             return cached.to_dict(), "cache"
@@ -166,7 +174,7 @@ class LearningEngine:
             await self._cache.set(topic, stored.to_dict())
             return stored.to_dict(), "db"
 
-        generated = await self._content.generate_material(topic)
+        generated = await self._content.generate_material(topic, explanation_level=explanation_level)
         await self._cache.set(topic, generated.to_dict())
         await self._safe_save_material(topic, generated.to_dict())
         return generated.to_dict(), "llm"

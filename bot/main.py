@@ -104,8 +104,6 @@ async def run_async() -> None:
     configure_logging(settings.log_level)
 
     openai_service = OpenAIService(
-        openrouter_api_key=settings.openrouter_api_key,
-        openrouter_model=settings.openrouter_model,
         groq_api_key=settings.groq_api_key,
         groq_model=settings.groq_model,
         timeout_seconds=settings.generation_timeout_seconds,

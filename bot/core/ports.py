@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from typing import Any, Awaitable, Callable, Protocol, TypeVar
+from typing import Any, Protocol
 
 from bot.core.models import LearningSession
-
-T = TypeVar("T")
-
 
 class LlmClient(Protocol):
     async def generate_json(
@@ -13,18 +10,15 @@ class LlmClient(Protocol):
         *,
         system_prompt: str,
         user_prompt: str,
-        parse_response: Callable[[str], T],
         model: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
-        usage_collector: Callable[[dict[str, int] | None], None] | None = None,
-        provider: str | None = None,
-    ) -> T:
+    ) -> str | None:
         ...
 
 
 class ContentGenerator(Protocol):
-    async def generate_material(self, topic: str):
+    async def generate_material(self, topic: str, explanation_level: str | None = None):
         ...
 
     async def generate_tests(self, topic: str, difficulty: str):
