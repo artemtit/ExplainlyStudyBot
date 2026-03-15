@@ -132,7 +132,10 @@ def create_test_keyboard(options: list[str], question_index: int) -> InlineKeybo
 
 
 def create_test_result_keyboard() -> InlineKeyboardMarkup:
-    keyboard = [[_inline_button(BTN_NEXT, "test:next")]]
+    keyboard = [
+        [_inline_button(BTN_NEXT, "test:next")],
+        [_inline_button(BTN_BACK_MENU, "test:menu")],
+    ]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
