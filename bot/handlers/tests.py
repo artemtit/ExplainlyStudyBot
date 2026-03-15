@@ -459,6 +459,13 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
             await call.answer()
             await render_lesson(call, state, material_service)
 
+    @router.callback_query(F.data == "practice:menu")
+    async def practice_menu_handler(call: CallbackQuery, state: FSMContext) -> None:
+        async with await lock_manager.get(call.from_user.id):
+            await call.answer()
+            await show_main_menu(call)
+            await state.set_state(StudyState.in_lesson)
+
     @router.callback_query(F.data == "test:back")
     async def test_back_handler(call: CallbackQuery, state: FSMContext) -> None:
         async with await lock_manager.get(call.from_user.id):

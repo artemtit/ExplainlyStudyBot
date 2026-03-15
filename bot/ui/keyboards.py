@@ -190,6 +190,7 @@ def create_practice_keyboard(*, show_solution: bool) -> InlineKeyboardMarkup:
     keyboard: list[list[InlineKeyboardButton]] = []
     if not show_solution:
         keyboard.append([_inline_button(BTN_SHOW_SOLUTION, "practice:show")])
+    keyboard.append([_inline_button(BTN_BACK_MENU, "practice:menu")])
     keyboard.append([_inline_button(BTN_BACK, "practice:back")])
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
