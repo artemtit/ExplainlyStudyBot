@@ -100,7 +100,7 @@ UNKNOWN_COMMAND_TEXT = (
     f"{SEPARATOR}\n"
     "\u26A0 \u041D\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043D\u0430\u044F \u043A\u043E\u043C\u0430\u043D\u0434\u0430\n"
     f"{SEPARATOR}\n\n"
-    "\u0414\u043E\u0441\u0442\u0443\u043F\u043D\u043E: /start, /help, /menu, /home, /topic, /new, /recent, /study, /learn, /restart, /settings, /reset, /notifications, /cards, /flashcards, /tests, /test, /practice, /lesson, /continue, /resume, /last, /profile, /me, /subscribe, /cancel, "
+    "\u0414\u043E\u0441\u0442\u0443\u043F\u043D\u043E: /start, /help, /menu, /main, /home, /topic, /new, /recent, /study, /learn, /restart, /settings, /reset, /notifications, /cards, /flashcards, /tests, /test, /practice, /lesson, /continue, /resume, /last, /profile, /me, /subscribe, /cancel, "
     "/support, /progress, /stats, /streak, /about, /feedback, /report"
 )
 
@@ -138,6 +138,12 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
 
     @router.message(Command("menu"))
     async def menu_handler(message: Message, state: FSMContext) -> None:
+        async with await lock_manager.get(message.from_user.id):
+            await state.clear()
+            await show_main_menu(message)
+
+    @router.message(Command("main"))
+    async def main_handler(message: Message, state: FSMContext) -> None:
         async with await lock_manager.get(message.from_user.id):
             await state.clear()
             await show_main_menu(message)
@@ -254,6 +260,8 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
             await show_main_menu(message)
 
     return router
+
+
 
 
 
