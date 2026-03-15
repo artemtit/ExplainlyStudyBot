@@ -423,6 +423,12 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
 
             await _render_question(call, state, material_service)
 
+    @router.callback_query(F.data == "test:retry")
+    async def test_retry_handler(call: CallbackQuery, state: FSMContext) -> None:
+        async with await lock_manager.get(call.from_user.id):
+            await call.answer()
+            await open_test(call, state, material_service, reset_progress=True)
+
     @router.callback_query(F.data == "test:menu")
     async def test_menu_back_handler(call: CallbackQuery, state: FSMContext) -> None:
         async with await lock_manager.get(call.from_user.id):

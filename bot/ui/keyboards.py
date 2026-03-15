@@ -28,6 +28,7 @@ BTN_FLASH_SHUFFLE = "\U0001F500 \u041F\u0435\u0440\u0435\u043C\u0435\u0448\u0430
 BTN_TEST_NEW = "\U0001F501 \u041D\u043E\u0432\u044B\u0439 \u0442\u0435\u0441\u0442"
 BTN_REVIEW_WRONG = "\U0001F4D8 \u041F\u043E\u0432\u0442\u043E\u0440\u0438\u0442\u044C \u043E\u0448\u0438\u0431\u043A\u0438"
 BTN_REVIEW_LESSON = "\U0001F4D8 \u041A \u0443\u0440\u043E\u043A\u0443"
+BTN_TEST_RETRY = "\U0001F501 \u041F\u043E\u0432\u0442\u043E\u0440\u0438\u0442\u044C \u0442\u0435\u0441\u0442"
 
 BTN_REVIEW_TOPIC = "\U0001F4D8 \u041E\u0431\u0437\u043E\u0440 \u0442\u0435\u043C\u044B"
 BTN_PRACTICE = "\U0001F9E9 \u041F\u0440\u0430\u043A\u0442\u0438\u043A\u0430"
@@ -127,6 +128,7 @@ def create_test_result_keyboard() -> InlineKeyboardMarkup:
 
 def create_test_done_keyboard() -> InlineKeyboardMarkup:
     keyboard = [
+        [_inline_button(BTN_TEST_RETRY, "test:retry")],
         [_inline_button(BTN_TEST_NEW, "test:new")],
         [_inline_button(BTN_REVIEW_WRONG, "test:review_wrong")],
         [_inline_button(BTN_PRACTICE, "test:practice")],
