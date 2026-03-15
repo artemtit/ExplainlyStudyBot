@@ -119,6 +119,7 @@ def create_test_keyboard(options: list[str], question_index: int) -> InlineKeybo
                 )
             ]
         )
+    keyboard.append([_inline_button(BTN_BACK_MENU, "test:menu")])
     keyboard.append([_inline_button(BTN_BACK, "test:back")])
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
