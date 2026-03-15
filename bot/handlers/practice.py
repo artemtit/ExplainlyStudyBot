@@ -9,7 +9,7 @@ from aiogram.types import Message
 from services.question_service import PracticeQuestion
 from services.storage import history_service, question_service, session_service
 from utils.formatting import format_question_text
-from utils.validation import validate_topic
+from utils.validation import extract_difficulty_and_topic, validate_topic
 
 router = Router(name="practice")
 
@@ -37,15 +37,17 @@ async def _send_question(message: Message, session: PracticeSession) -> None:
 
 @router.message(Command("practice"))
 async def practice_start_handler(message: Message) -> None:
-    topic = message.get_args().strip()
-    if not topic:
+    args = message.get_args().strip()
+    if not args:
         await message.answer("Укажи тему после команды, например: /practice Дроби")
         return
+    difficulty, topic = extract_difficulty_and_topic(args)
     validated = validate_topic(topic)
     if not validated:
         await message.answer("Тема слишком короткая или длинная. Попробуй еще раз.")
         return
-    questions = await question_service.generate_questions(validated)
+    difficulty_label = _difficulty_to_label(difficulty)
+    questions = await question_service.generate_questions(validated, difficulty=difficulty_label)
     session = PracticeSession(questions=questions)
     _sessions[message.from_user.id] = session
     session_service.set_last_topic(user_id=message.from_user.id, topic=validated, mode="practice")
@@ -65,15 +67,17 @@ async def hint_handler(message: Message) -> None:
 
 @router.message(Command("exam"))
 async def exam_start_handler(message: Message) -> None:
-    topic = message.get_args().strip()
-    if not topic:
+    args = message.get_args().strip()
+    if not args:
         await message.answer("Укажи тему после команды, например: /exam Фотосинтез")
         return
+    difficulty, topic = extract_difficulty_and_topic(args)
     validated = validate_topic(topic)
     if not validated:
         await message.answer("Тема слишком короткая или длинная. Попробуй еще раз.")
         return
-    questions = await question_service.generate_exam_questions(validated)
+    difficulty_label = _difficulty_to_label(difficulty)
+    questions = await question_service.generate_exam_questions(validated, difficulty=difficulty_label)
     session = PracticeSession(questions=questions)
     _sessions[message.from_user.id] = session
     session_service.set_last_topic(user_id=message.from_user.id, topic=validated, mode="exam")
@@ -111,3 +115,12 @@ async def practice_answer_handler(message: Message) -> None:
         await message.answer("Практика завершена. Можешь начать новую тему.")
         return
     await _send_question(message, session)
+
+
+def _difficulty_to_label(level: str) -> str:
+    mapping = {
+        "easy": "\u043f\u0440\u043e\u0441\u0442\u0430\u044f",
+        "normal": "\u0441\u0440\u0435\u0434\u043d\u044f\u044f",
+        "hard": "\u0441\u043b\u043e\u0436\u043d\u0430\u044f",
+    }
+    return mapping.get(level, "\u0441\u0440\u0435\u0434\u043d\u044f\u044f")

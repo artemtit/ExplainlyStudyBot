@@ -8,6 +8,7 @@ from ai.prompts.loader import PromptLoader
 from database.repository import Repository
 from services.analytics_service import AnalyticsService
 from services.session_service import SessionService
+from services.streak_service import StreakService
 
 
 @dataclass
@@ -15,6 +16,7 @@ class LessonResult:
     topic: str
     explanation: str
     examples: list[str]
+    summary: list[str]
 
 
 class LessonService:
@@ -25,20 +27,31 @@ class LessonService:
         repository: Repository | None = None,
         analytics: "AnalyticsService | None" = None,
         session_service: "SessionService | None" = None,
+        streak_service: "StreakService | None" = None,
     ) -> None:
         self._llm_client = llm_client
         self._repository = repository
         self._analytics = analytics
         self._session_service = session_service
+        self._streak_service = streak_service
         self._prompts = PromptLoader()
         self._logger = logging.getLogger(__name__)
 
-    async def explain(self, topic: str, *, user_id: int | None = None) -> LessonResult:
-        explain_prompt = self._prompts.load("explain_topic", topic=topic)
+    async def explain(
+        self,
+        topic: str,
+        *,
+        user_id: int | None = None,
+        difficulty: str = "\u0441\u0440\u0435\u0434\u043d\u044f\u044f",
+    ) -> LessonResult:
+        explain_prompt = self._prompts.load("explain_topic", topic=topic, difficulty=difficulty)
         explanation = await self._llm_client.complete(explain_prompt)
         examples_prompt = self._prompts.load("examples", topic=topic)
         examples_raw = await self._llm_client.complete(examples_prompt)
         examples = self._parse_examples(examples_raw)
+        summary_prompt = self._prompts.load("summary", topic=topic)
+        summary_raw = await self._llm_client.complete(summary_prompt)
+        summary = self._parse_examples(summary_raw)
         if self._repository and user_id is not None:
             await self._repository.store_lesson(user_id=user_id, topic=topic, content=explanation)
             self._logger.info("Lesson stored: user_id=%s topic=%s", user_id, topic)
@@ -46,7 +59,9 @@ class LessonService:
             self._analytics.record_lesson(topic)
         if self._session_service and user_id is not None:
             self._session_service.set_last_topic(user_id=user_id, topic=topic, mode="lesson")
-        return LessonResult(topic=topic, explanation=explanation, examples=examples)
+        if self._streak_service and user_id is not None:
+            self._streak_service.update(user_id)
+        return LessonResult(topic=topic, explanation=explanation, examples=examples, summary=summary)
 
     @staticmethod
     def _parse_examples(raw: str) -> list[str]:

@@ -321,15 +321,19 @@ Add exam-style questions.
 
 
 === PROMPT 037 ===
+DONE
 Add difficulty levels.
 
 === PROMPT 038 ===
+DONE
 Add lesson summary generation.
 
 
 === PROMPT 039 ===
+DONE
 Add learning streak tracking.
 
 
 === PROMPT 040 ===
+DONE
 Prepare project for deployment on Render.

@@ -19,8 +19,19 @@ class QuestionService:
         self._prompts = PromptLoader()
         self._logger = logging.getLogger(__name__)
 
-    async def generate_questions(self, topic: str, *, count: int = 3) -> list[PracticeQuestion]:
-        prompt = self._prompts.load("generate_questions", topic=topic, count=count)
+    async def generate_questions(
+        self,
+        topic: str,
+        *,
+        count: int = 3,
+        difficulty: str = "\u0441\u0440\u0435\u0434\u043d\u044f\u044f",
+    ) -> list[PracticeQuestion]:
+        prompt = self._prompts.load(
+            "generate_questions",
+            topic=topic,
+            count=count,
+            difficulty=difficulty,
+        )
         raw = await self._llm_client.complete(prompt)
         questions = self._parse_questions(raw, fallback_topic=topic, count=count)
         self._logger.info("Generated %s questions for topic=%s", len(questions), topic)
@@ -53,8 +64,19 @@ class QuestionService:
         prompt = self._prompts.load("hint", question=question.question)
         return await self._llm_client.complete(prompt)
 
-    async def generate_exam_questions(self, topic: str, *, count: int = 3) -> list[PracticeQuestion]:
-        prompt = self._prompts.load("exam_questions", topic=topic, count=count)
+    async def generate_exam_questions(
+        self,
+        topic: str,
+        *,
+        count: int = 3,
+        difficulty: str = "\u0441\u0440\u0435\u0434\u043d\u044f\u044f",
+    ) -> list[PracticeQuestion]:
+        prompt = self._prompts.load(
+            "exam_questions",
+            topic=topic,
+            count=count,
+            difficulty=difficulty,
+        )
         raw = await self._llm_client.complete(prompt)
         return self._parse_questions(raw, fallback_topic=topic, count=count)
 

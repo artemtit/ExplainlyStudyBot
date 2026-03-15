@@ -1,11 +1,20 @@
 from __future__ import annotations
 
 
-def format_lesson_text(topic: str, explanation: str, *, examples: list[str] | None = None) -> str:
+def format_lesson_text(
+    topic: str,
+    explanation: str,
+    *,
+    examples: list[str] | None = None,
+    summary: list[str] | None = None,
+) -> str:
     text = f"*Тема:* {topic}\n\n{explanation}"
     if examples:
         examples_block = "\n".join(f"• {item}" for item in examples)
         text = f"{text}\n\n*Примеры:*\n{examples_block}"
+    if summary:
+        summary_block = "\n".join(f"• {item}" for item in summary)
+        text = f"{text}\n\n*Резюме:*\n{summary_block}"
     return text
 
 
