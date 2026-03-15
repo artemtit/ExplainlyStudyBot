@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from aiogram import F, Router
+from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
@@ -38,6 +39,11 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
 
     @router.message(F.text == BTN_SETTINGS)
     async def settings_handler(message: Message, state: FSMContext) -> None:
+        async with await lock_manager.get(message.from_user.id):
+            await _send_settings(message, support_url=support_url)
+
+    @router.message(Command("settings"))
+    async def settings_command_handler(message: Message, state: FSMContext) -> None:
         async with await lock_manager.get(message.from_user.id):
             await _send_settings(message, support_url=support_url)
 
