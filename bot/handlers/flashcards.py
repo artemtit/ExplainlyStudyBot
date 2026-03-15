@@ -4,6 +4,7 @@ import logging
 import random
 
 from aiogram import F, Router
+from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
@@ -155,6 +156,11 @@ async def open_flashcards(
 
 def build_router(material_service: LearningEngine, lock_manager: UserLockManager) -> Router:
     router = Router(name="flashcards")
+
+    @router.message(Command("cards"))
+    async def flashcards_command_handler(message: Message, state: FSMContext) -> None:
+        async with await lock_manager.get(message.from_user.id):
+            await open_flashcards(message, state, material_service, reset_index=True)
 
     @router.message(F.text == BTN_FLASHCARDS)
     async def flashcards_menu_handler(message: Message, state: FSMContext) -> None:

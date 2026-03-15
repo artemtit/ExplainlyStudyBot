@@ -142,6 +142,7 @@ async def run_async() -> None:
                 BotCommand(command="home", description="Главное меню (алиас)"),
                 BotCommand(command="restart", description="Перезапуск бота"),
                 BotCommand(command="topic", description="Новая тема"),
+                BotCommand(command="cards", description="Флэшкарты"),
                 BotCommand(command="cancel", description="Отменить текущее действие"),
                 BotCommand(command="support", description="Связаться с поддержкой"),
                 BotCommand(command="progress", description="Показать прогресс"),
