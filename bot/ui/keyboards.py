@@ -215,4 +215,5 @@ def create_recent_topics_keyboard(topics: list[str]) -> InlineKeyboardMarkup:
         label = _truncate_text(topic, limit=48)
         keyboard.append([_inline_button(label, f"recent:pick:{idx}")])
     keyboard.append([_inline_button(BTN_RECENT_NEW_TOPIC, "recent:new")])
+    keyboard.append([_inline_button(BTN_BACK_MENU, "recent:menu")])
     return InlineKeyboardMarkup(inline_keyboard=keyboard)

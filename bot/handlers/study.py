@@ -387,6 +387,13 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
             await call.answer()
             await call.message.answer(format_topic_prompt())
 
+    @router.callback_query(StateFilter(StudyState.awaiting_topic), F.data == "recent:menu")
+    async def recent_menu_handler(call: CallbackQuery, state: FSMContext) -> None:
+        async with await lock_manager.get(call.from_user.id):
+            await call.answer()
+            await show_main_menu(call)
+            await state.set_state(StudyState.in_lesson)
+
     @router.message(F.text == BTN_CONTINUE)
     async def continue_handler(message: Message, state: FSMContext) -> None:
         async with await lock_manager.get(message.from_user.id):
