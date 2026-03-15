@@ -246,7 +246,7 @@ async def _load_topic(
     return True
 
 
-async def _resume_flow(
+async def resume_flow(
     *,
     message: Message,
     state: FSMContext,
@@ -363,7 +363,7 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
     @router.message(F.text == BTN_CONTINUE)
     async def continue_handler(message: Message, state: FSMContext) -> None:
         async with await lock_manager.get(message.from_user.id):
-            await _resume_flow(message=message, state=state, service=material_service)
+            await resume_flow(message=message, state=state, service=material_service)
 
     @router.message(StateFilter(StudyState.awaiting_topic), F.text)
     async def topic_message_handler(message: Message, state: FSMContext) -> None:
