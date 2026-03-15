@@ -147,6 +147,7 @@ async def run_async() -> None:
                 BotCommand(command="stats", description="Статистика (то же, что прогресс)"),
                 BotCommand(command="about", description="О боте"),
                 BotCommand(command="feedback", description="Отправить отзыв"),
+                BotCommand(command="report", description="Сообщить о проблеме"),
             ]
         )
     except Exception:
