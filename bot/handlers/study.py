@@ -19,6 +19,8 @@ from bot.ui.formatting import (
     format_no_resume,
     format_recent_topics,
     format_topic_prompt,
+    format_topic_too_long,
+    format_topic_too_short,
 )
 from bot.ui.keyboards import (
     BTN_CONTINUE,
@@ -43,6 +45,8 @@ logger = logging.getLogger(__name__)
 
 GEN_RATE_LIMIT_SECONDS = 5.0
 _LAST_GEN_AT: dict[int, float] = {}
+MIN_TOPIC_LEN = 2
+MAX_TOPIC_LEN = 200
 RATE_LIMIT_TEXT = (
     f"{SEPARATOR}\n\u23F3 \u041D\u0435\u043C\u043D\u043E\u0433\u043E \u043F\u043E\u0434\u043E\u0436\u0434\u0438\u0442\u0435\n{SEPARATOR}\n\n"
     "\u041F\u043E\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0435\u0449\u0451 \u0440\u0430\u0437 \u0447\u0435\u0440\u0435\u0437 \u043F\u0430\u0440\u0443 \u0441\u0435\u043A\u0443\u043D\u0434."
@@ -369,8 +373,17 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
                 return
             if text in {BTN_START_LEARNING, BTN_CONTINUE, BTN_FLASHCARDS, BTN_TEST, BTN_PROGRESS, BTN_PROFILE}:
                 return
+            stripped = text.strip()
+            if len(stripped) < MIN_TOPIC_LEN:
+                await message.answer(format_topic_too_short(MIN_TOPIC_LEN))
+                await message.answer(format_topic_prompt())
+                return
+            if len(stripped) > MAX_TOPIC_LEN:
+                await message.answer(format_topic_too_long(MAX_TOPIC_LEN))
+                await message.answer(format_topic_prompt())
+                return
 
-            topic = validate_topic(text)
+            topic = validate_topic(stripped, min_len=MIN_TOPIC_LEN, max_len=MAX_TOPIC_LEN)
             if not topic:
                 await message.answer(format_topic_prompt())
                 return
