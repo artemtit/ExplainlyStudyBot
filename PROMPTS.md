@@ -1795,6 +1795,7 @@ Output format:
 5. Risks and edge cases
 6. Suggested next improvements
 Prompt 70
+DONE
 You are an expert AI engineer, startup product designer, and senior software architect.
 Your task is to work on step 70 of building an AI tutor startup.
 Context:

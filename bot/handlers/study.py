@@ -375,8 +375,19 @@ async def _ensure_lesson_material(message: Message, state: FSMContext, service: 
 
 
 async def show_topic_entry(message: Message, state: FSMContext, service: LearningEngine, *, user_id: int) -> None:
+    await show_recent_topics(message, state, service, user_id=user_id, limit=3)
+
+
+async def show_recent_topics(
+    message: Message,
+    state: FSMContext,
+    service: LearningEngine,
+    *,
+    user_id: int,
+    limit: int,
+) -> None:
     await state.set_state(StudyState.awaiting_topic)
-    recent_topics = await service.get_recent_topics(user_id, limit=3)
+    recent_topics = await service.get_recent_topics(user_id, limit=limit)
     if recent_topics:
         await state.update_data(recent_topics=recent_topics)
         await message.answer(
@@ -416,6 +427,11 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
     async def new_topic_command_handler(message: Message, state: FSMContext) -> None:
         async with await lock_manager.get(message.from_user.id):
             await show_topic_entry(message, state, material_service, user_id=message.from_user.id)
+
+    @router.message(Command("topics"))
+    async def topics_command_handler(message: Message, state: FSMContext) -> None:
+        async with await lock_manager.get(message.from_user.id):
+            await show_recent_topics(message, state, material_service, user_id=message.from_user.id, limit=10)
 
     @router.message(Command("recent"))
     async def recent_command_handler(message: Message, state: FSMContext) -> None:
