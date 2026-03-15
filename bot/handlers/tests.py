@@ -336,6 +336,11 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
         async with await lock_manager.get(message.from_user.id):
             await open_test(message, state, material_service, reset_progress=True)
 
+    @router.message(Command("practice"))
+    async def practice_command_handler(message: Message, state: FSMContext) -> None:
+        async with await lock_manager.get(message.from_user.id):
+            await open_practice(message, state, material_service, show_solution=False)
+
     @router.message(F.text == BTN_TEST)
     async def test_menu_handler(message: Message, state: FSMContext) -> None:
         async with await lock_manager.get(message.from_user.id):
