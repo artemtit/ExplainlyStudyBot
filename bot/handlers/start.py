@@ -121,12 +121,14 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
         async with await lock_manager.get(message.from_user.id):
             await state.clear()
             await message.answer(HELP_TEXT, reply_markup=_build_help_keyboard(support_url))
+            await show_main_menu(message)
 
     @router.message(F.text == BTN_HELP)
     async def help_button_handler(message: Message, state: FSMContext) -> None:
         async with await lock_manager.get(message.from_user.id):
             await state.clear()
             await message.answer(HELP_TEXT, reply_markup=_build_help_keyboard(support_url))
+            await show_main_menu(message)
 
     @router.message(Command("support"))
     async def support_handler(message: Message, state: FSMContext) -> None:
