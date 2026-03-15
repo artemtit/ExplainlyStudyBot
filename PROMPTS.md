@@ -43,6 +43,7 @@ Responsibilities:
 
 
 === PROMPT 003 ===
+DONE
 Create bot/handlers/start.py.
 
 Responsibilities:

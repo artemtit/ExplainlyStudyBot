@@ -9,7 +9,7 @@ from aiogram import Bot, Dispatcher
 
 def _register_handlers(dispatcher: Dispatcher) -> None:
     try:
-        from handlers.start import router as start_router
+        from bot.handlers.start import router as start_router
     except Exception:  # pragma: no cover - safe fallback for early bootstrap
         logging.getLogger(__name__).exception("Failed to import handlers.start")
         return
