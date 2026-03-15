@@ -32,6 +32,7 @@ Add __init__.py files.
 
 
 === PROMPT 002 ===
+DONE
 Create main.py.
 
 Responsibilities:
