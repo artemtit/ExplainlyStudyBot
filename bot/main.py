@@ -14,6 +14,7 @@ try:
     from aiogram.fsm.storage.redis import RedisStorage
 except Exception:
     RedisStorage = None
+from aiogram.types import BotCommand
 from aiogram.types.error_event import ErrorEvent
 
 from bot.config import configure_logging, load_settings
@@ -131,6 +132,19 @@ async def run_async() -> None:
     lock_manager = UserLockManager()
 
     bot = Bot(token=settings.telegram_token, default=DefaultBotProperties())
+    try:
+        await bot.set_my_commands(
+            [
+                BotCommand(command="start", description="Запуск и главное меню"),
+                BotCommand(command="help", description="Справка по боту"),
+                BotCommand(command="menu", description="Главное меню"),
+                BotCommand(command="cancel", description="Отменить текущее действие"),
+                BotCommand(command="support", description="Связаться с поддержкой"),
+                BotCommand(command="progress", description="Показать прогресс"),
+            ]
+        )
+    except Exception:
+        logger.exception("Failed to set bot commands")
     dp = _build_dispatcher(learning_engine, lock_manager, settings.free_tier_notice, settings.support_url)
 
     health_task = asyncio.create_task(_run_health_server())
