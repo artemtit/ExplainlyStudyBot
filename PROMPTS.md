@@ -78,6 +78,7 @@ Responsibilities:
 
 
 === PROMPT 006 ===
+DONE
 Create ai/llm_client.py.
 
 Responsibilities:
