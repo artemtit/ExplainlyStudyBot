@@ -170,12 +170,14 @@ def create_progress_keyboard(*, can_continue: bool, show_new_topic: bool = True)
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
-def create_profile_keyboard() -> InlineKeyboardMarkup:
+def create_profile_keyboard(*, support_url: str | None = None) -> InlineKeyboardMarkup:
     keyboard = [
         [_inline_button("\u2B50 \u041F\u043E\u0434\u043F\u0438\u0441\u043A\u0430", "profile:subscription")],
         [_inline_button(BTN_SETTINGS, "profile:settings")],
-        [_inline_button(BTN_BACK_MENU, "profile:back")],
     ]
+    if support_url:
+        keyboard.append([_inline_url_button(BTN_SUPPORT, support_url)])
+    keyboard.append([_inline_button(BTN_BACK_MENU, "profile:back")])
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 

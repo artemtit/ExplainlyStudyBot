@@ -45,23 +45,23 @@ def _format_profile(user_id: int, username: str | None, stats: dict) -> str:
     )
 
 
-async def _open_profile(target: Message | CallbackQuery, service: LearningEngine) -> None:
+async def _open_profile(target: Message | CallbackQuery, service: LearningEngine, support_url: str | None) -> None:
     user = target.from_user
     stats = await service.get_user_stats(user.id)
     text = _format_profile(user.id, user.username, stats)
     if isinstance(target, CallbackQuery):
-        await edit_or_send(target, text, reply_markup=create_profile_keyboard())
+        await edit_or_send(target, text, reply_markup=create_profile_keyboard(support_url=support_url))
     else:
-        await target.answer(text, reply_markup=create_profile_keyboard())
+        await target.answer(text, reply_markup=create_profile_keyboard(support_url=support_url))
 
 
-def build_router(material_service: LearningEngine, lock_manager: UserLockManager) -> Router:
+def build_router(material_service: LearningEngine, lock_manager: UserLockManager, support_url: str | None) -> Router:
     router = Router(name="profile")
 
     @router.message(F.text == BTN_PROFILE)
     async def profile_handler(message: Message, state: FSMContext) -> None:
         async with await lock_manager.get(message.from_user.id):
-            await _open_profile(message, material_service)
+            await _open_profile(message, material_service, support_url)
 
     @router.callback_query(F.data == "profile:back")
     async def profile_back_handler(call: CallbackQuery, state: FSMContext) -> None:
@@ -72,6 +72,6 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
     async def profile_subscription_handler(call: CallbackQuery, state: FSMContext) -> None:
         async with await lock_manager.get(call.from_user.id):
             await call.answer()
-            await edit_or_send(call, SUBSCRIPTION_TEXT, reply_markup=create_profile_keyboard())
+            await edit_or_send(call, SUBSCRIPTION_TEXT, reply_markup=create_profile_keyboard(support_url=support_url))
 
     return router

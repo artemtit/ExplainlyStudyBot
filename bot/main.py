@@ -85,7 +85,7 @@ def _build_dispatcher(
     dp.include_router(build_flashcards_router(learning_engine, lock_manager))
     dp.include_router(build_tests_router(learning_engine, lock_manager))
     dp.include_router(build_progress_router(learning_engine, lock_manager))
-    dp.include_router(build_profile_router(learning_engine, lock_manager))
+    dp.include_router(build_profile_router(learning_engine, lock_manager, support_url))
     dp.include_router(build_settings_router(learning_engine, lock_manager, support_url))
 
     @dp.error()
