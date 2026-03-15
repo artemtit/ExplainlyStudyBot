@@ -47,6 +47,11 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
         async with await lock_manager.get(message.from_user.id):
             await _send_settings(message, support_url=support_url)
 
+    @router.message(Command("reset"))
+    async def reset_command_handler(message: Message, state: FSMContext) -> None:
+        async with await lock_manager.get(message.from_user.id):
+            await message.answer(RESET_CONFIRM_TEXT, reply_markup=create_reset_confirm_keyboard())
+
     @router.callback_query(F.data == "profile:settings")
     async def profile_settings_handler(call: CallbackQuery, state: FSMContext) -> None:
         async with await lock_manager.get(call.from_user.id):
