@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 
 from ai.llm_client import LlmClient
+from ai.prompts.loader import PromptLoader
 
 
 @dataclass
@@ -14,30 +16,47 @@ class PracticeQuestion:
 class QuestionService:
     def __init__(self, llm_client: LlmClient) -> None:
         self._llm_client = llm_client
+        self._prompts = PromptLoader()
+        self._logger = logging.getLogger(__name__)
 
     async def generate_questions(self, topic: str, *, count: int = 3) -> list[PracticeQuestion]:
-        prompt = (
-            "Сгенерируй практические вопросы по теме.\n"
-            "Формат: Q: <вопрос> | A: <краткий ответ>\n"
-            f"Тема: {topic}\n"
-            f"Количество: {count}"
-        )
+        prompt = self._prompts.load("generate_questions", topic=topic, count=count)
         raw = await self._llm_client.complete(prompt)
-        return self._parse_questions(raw, fallback_topic=topic, count=count)
+        questions = self._parse_questions(raw, fallback_topic=topic, count=count)
+        self._logger.info("Generated %s questions for topic=%s", len(questions), topic)
+        return questions
 
     async def validate_answer(self, *, question: PracticeQuestion, user_answer: str) -> bool:
         expected = self._normalize(question.answer)
         provided = self._normalize(user_answer)
         if expected:
             return expected == provided
-        prompt = (
-            "Проверь, правильный ли ответ пользователя.\n"
-            f"Вопрос: {question.question}\n"
-            f"Ответ пользователя: {user_answer}\n"
-            "Ответь одним словом: YES или NO."
+        prompt = self._prompts.load(
+            "evaluate_answer",
+            question=question.question,
+            answer=question.answer,
+            user_answer=user_answer,
         )
         verdict = await self._llm_client.complete(prompt)
         return verdict.strip().upper().startswith("Y")
+
+    async def get_feedback(self, *, question: PracticeQuestion, user_answer: str) -> str:
+        prompt = (
+            "Коротко объясни, почему ответ неверный, и дай правильное направление.\n"
+            f"Вопрос: {question.question}\n"
+            f"Ответ пользователя: {user_answer}\n"
+            f"Правильный ответ: {question.answer}\n"
+            "Ответ: "
+        )
+        return await self._llm_client.complete(prompt)
+
+    async def generate_hint(self, *, question: PracticeQuestion) -> str:
+        prompt = (
+            "Дай короткую подсказку, не раскрывая ответ полностью.\n"
+            f"Вопрос: {question.question}\n"
+            "Подсказка: "
+        )
+        return await self._llm_client.complete(prompt)
 
     @staticmethod
     def _normalize(value: str) -> str:

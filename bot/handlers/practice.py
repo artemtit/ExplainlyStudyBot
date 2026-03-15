@@ -33,7 +33,8 @@ async def _send_question(message: Message, session: PracticeSession) -> None:
             question.question,
             index=session.index + 1,
             total=len(session.questions),
-        )
+        ),
+        parse_mode="Markdown",
     )
 
 
@@ -53,6 +54,17 @@ async def practice_start_handler(message: Message) -> None:
     await _send_question(message, session)
 
 
+@router.message(Command("hint"))
+async def hint_handler(message: Message) -> None:
+    session = _sessions.get(message.from_user.id)
+    if not session:
+        await message.answer("Сначала начни практику: /practice <тема>")
+        return
+    current = session.questions[session.index]
+    hint = await _question_service.generate_hint(question=current)
+    await message.answer(f"Подсказка: {hint}")
+
+
 @router.message(F.text)
 async def practice_answer_handler(message: Message) -> None:
     if message.text.startswith("/"):
@@ -69,7 +81,8 @@ async def practice_answer_handler(message: Message) -> None:
         await message.answer("Верно! Отличная работа.")
     else:
         answer = current.answer or "Нет эталонного ответа."
-        await message.answer(f"Похоже, есть неточность. Пример ответа: {answer}")
+        feedback = await _question_service.get_feedback(question=current, user_answer=message.text)
+        await message.answer(f"Похоже, есть неточность.\n{feedback}\nПример ответа: {answer}")
 
     session.index += 1
     if session.index >= len(session.questions):

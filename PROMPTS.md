@@ -195,12 +195,14 @@ timestamp.
 
 
 === PROMPT 017 ===
+DONE
 Add logging system.
 
 Use Python logging.
 
 
 === PROMPT 018 ===
+DONE
 Add environment config.
 
 Create config.py.
@@ -213,6 +215,7 @@ DATABASE_URL.
 
 
 === PROMPT 019 ===
+DONE
 Implement error handling middleware.
 
 Handle:
@@ -223,10 +226,12 @@ timeouts.
 
 
 === PROMPT 020 ===
+DONE
 Add basic caching for LLM responses.
 
 
 === PROMPT 021 ===
+DONE
 Add topic normalization.
 
 Example:
@@ -236,22 +241,27 @@ Example:
 
 
 === PROMPT 022 ===
+DONE
 Add example generation to lessons.
 
 
 === PROMPT 023 ===
+DONE
 Add "3 practice questions" after lesson.
 
 
 === PROMPT 024 ===
+DONE
 Implement feedback if answer incorrect.
 
 
 === PROMPT 025 ===
+DONE
 Add hint generation.
 
 
 === PROMPT 026 ===
+DONE
 Improve Telegram message formatting.
 
 
@@ -302,7 +312,6 @@ Add exam-style questions.
 
 === PROMPT 037 ===
 Add difficulty levels.
-
 
 === PROMPT 038 ===
 Add lesson summary generation.
