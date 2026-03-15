@@ -36,7 +36,14 @@ from bot.ui.keyboards import (
 from bot.utils.locks import UserLockManager
 from bot.utils.formula_detector import contains_formula
 from bot.utils.formula_renderer import render_formula_image
-from bot.utils.strings import FREE_NOTICE_TEXT, GENERATION_TEXT, TEMP_UNAVAILABLE_TEXT
+from bot.utils.strings import (
+    FREE_NOTICE_TEXT,
+    GENERATION_TEXT,
+    LOADED_CACHE,
+    LOADED_DB,
+    LOADED_NEW,
+    TEMP_UNAVAILABLE_TEXT,
+)
 from bot.utils.telegram_utils import edit_or_send
 from bot.utils.text_format import split_text_by_limit
 from bot.utils.topic_utils import validate_topic
@@ -203,7 +210,7 @@ async def _load_topic(
         free_msg = await status_target.answer(FREE_NOTICE_TEXT)
 
     try:
-        material, _ = await service.start_lesson(
+        material, source = await service.start_lesson(
             user_id,
             topic,
             username=username,
@@ -242,6 +249,11 @@ async def _load_topic(
         if free_msg:
             await free_msg.delete()
 
+    status_map = {"cache": LOADED_CACHE, "db": LOADED_DB, "llm": LOADED_NEW}
+    status_text = status_map.get(str(source))
+    if status_text:
+        await status_target.answer(status_text)
+
     await render_lesson(sender, state, service)
     return True
 
@@ -263,7 +275,7 @@ async def resume_flow(
         return
 
     try:
-        material, _ = await service.get_or_generate_material(
+        material, source = await service.get_or_generate_material(
             user_id=message.from_user.id,
             username=message.from_user.username,
             topic=topic,
@@ -285,6 +297,11 @@ async def resume_flow(
         resume_card_index=int(resume.get("card_index", 0)),
         resume_test_index=int(resume.get("test_index", 0)),
     )
+
+    status_map = {"cache": LOADED_CACHE, "db": LOADED_DB, "llm": LOADED_NEW}
+    status_text = status_map.get(str(source))
+    if status_text:
+        await message.answer(status_text)
 
     stage = str(resume.get("last_stage") or "lesson")
     if stage == "flashcards":
