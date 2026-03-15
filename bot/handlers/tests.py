@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 
 from aiogram import F, Router
+from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
@@ -329,6 +330,11 @@ async def open_practice(
 
 def build_router(material_service: LearningEngine, lock_manager: UserLockManager) -> Router:
     router = Router(name="tests")
+
+    @router.message(Command("tests"))
+    async def tests_command_handler(message: Message, state: FSMContext) -> None:
+        async with await lock_manager.get(message.from_user.id):
+            await open_test(message, state, material_service, reset_progress=True)
 
     @router.message(F.text == BTN_TEST)
     async def test_menu_handler(message: Message, state: FSMContext) -> None:
