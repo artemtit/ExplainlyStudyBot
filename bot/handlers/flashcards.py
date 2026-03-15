@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import random
 
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
@@ -82,6 +83,12 @@ async def _render_card(target: Message | CallbackQuery, state: FSMContext, servi
 
     data = await state.get_data()
     index = int(data.get("card_index", 0))
+    order = data.get("flash_order")
+    if isinstance(order, list) and order:
+        order = [idx for idx in order if isinstance(idx, int) and 0 <= idx < len(cards)]
+        if order:
+            cards = [cards[idx] for idx in order]
+
     show_answer = bool(data.get("flash_show_answer", False))
 
     if not cards:
@@ -126,7 +133,7 @@ async def open_flashcards(
     await state.set_state(StudyState.in_flashcards)
     if reset_index:
         await state.update_data(card_index=0)
-    await state.update_data(flash_show_answer=False)
+    await state.update_data(flash_show_answer=False, flash_order=None)
 
     data = await state.get_data()
     topic = str(data.get("topic") or "")
@@ -202,6 +209,34 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
             await call.answer()
             await state.update_data(card_index=0, flash_show_answer=False)
             data = await state.get_data()
+            topic = str(data.get("topic") or "")
+            await maybe_save_resume_state(
+                state,
+                material_service,
+                user_id=call.from_user.id,
+                topic=topic,
+                stage="flashcards",
+                card_index=0,
+                test_index=int(data.get("test_index", 0)),
+                test_score=int(data.get("test_score", 0)),
+            )
+            await material_service.record_activity(call.from_user.id, last_topic=topic, last_stage="flashcards")
+            await _render_card(call, state, material_service)
+
+    @router.callback_query(F.data == "flash:shuffle")
+    async def flash_shuffle_handler(call: CallbackQuery, state: FSMContext) -> None:
+        async with await lock_manager.get(call.from_user.id):
+            await call.answer()
+            data = await state.get_data()
+            material = data.get("material") if isinstance(data.get("material"), dict) else {}
+            cards = material.get("cards", []) if isinstance(material.get("cards"), list) else []
+            if not cards:
+                await _render_card(call, state, material_service)
+                return
+
+            order = list(range(len(cards)))
+            random.shuffle(order)
+            await state.update_data(card_index=0, flash_show_answer=False, flash_order=order)
             topic = str(data.get("topic") or "")
             await maybe_save_resume_state(
                 state,
