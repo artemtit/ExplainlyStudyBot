@@ -22,6 +22,10 @@ PROFILE_TEXT = (
     "\u0421\u0435\u0440\u0438\u044F: {streak}\n"
     "\u041F\u043E\u0441\u043B\u0435\u0434\u043D\u044F\u044F \u0442\u0435\u043C\u0430: {last_topic}"
 )
+SUBSCRIPTION_TEXT = (
+    f"{SEPARATOR}\n\u2B50 \u041F\u043E\u0434\u043F\u0438\u0441\u043A\u0430\n{SEPARATOR}\n\n"
+    "\u042D\u0442\u0430 \u0444\u0443\u043D\u043A\u0446\u0438\u044F \u043F\u043E\u043A\u0430 \u0432 \u0440\u0430\u0437\u0440\u0430\u0431\u043E\u0442\u043A\u0435."
+)
 
 
 def _format_profile(user_id: int, username: str | None, stats: dict) -> str:
@@ -68,6 +72,6 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
     async def profile_subscription_handler(call: CallbackQuery, state: FSMContext) -> None:
         async with await lock_manager.get(call.from_user.id):
             await call.answer()
-            await _open_profile(call, material_service)
+            await edit_or_send(call, SUBSCRIPTION_TEXT, reply_markup=create_profile_keyboard())
 
     return router
