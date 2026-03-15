@@ -441,6 +441,12 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
                 if call.message:
                     await show_topic_entry(call.message, state, material_service, user_id=call.from_user.id)
                 return
+            if level_raw == "menu":
+                await call.answer()
+                if call.message:
+                    await show_main_menu(call)
+                    await state.set_state(StudyState.in_lesson)
+                return
             explanation_level = level_raw if level_raw in {"simple", "normal", "hard"} else "normal"
 
             now = time.monotonic()

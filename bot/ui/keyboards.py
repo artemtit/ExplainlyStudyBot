@@ -205,6 +205,7 @@ def create_explanation_level_keyboard() -> InlineKeyboardMarkup:
         [_inline_button(BTN_EXPLAIN_NORMAL, "explain_level:normal")],
         [_inline_button(BTN_EXPLAIN_HARD, "explain_level:hard")],
         [_inline_button(BTN_BACK, "explain_level:back")],
+        [_inline_button(BTN_BACK_MENU, "explain_level:menu")],
     ]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
