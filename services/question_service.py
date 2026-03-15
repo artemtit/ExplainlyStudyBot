@@ -41,22 +41,22 @@ class QuestionService:
         return verdict.strip().upper().startswith("Y")
 
     async def get_feedback(self, *, question: PracticeQuestion, user_answer: str) -> str:
-        prompt = (
-            "Коротко объясни, почему ответ неверный, и дай правильное направление.\n"
-            f"Вопрос: {question.question}\n"
-            f"Ответ пользователя: {user_answer}\n"
-            f"Правильный ответ: {question.answer}\n"
-            "Ответ: "
+        prompt = self._prompts.load(
+            "feedback",
+            question=question.question,
+            answer=question.answer,
+            user_answer=user_answer,
         )
         return await self._llm_client.complete(prompt)
 
     async def generate_hint(self, *, question: PracticeQuestion) -> str:
-        prompt = (
-            "Дай короткую подсказку, не раскрывая ответ полностью.\n"
-            f"Вопрос: {question.question}\n"
-            "Подсказка: "
-        )
+        prompt = self._prompts.load("hint", question=question.question)
         return await self._llm_client.complete(prompt)
+
+    async def generate_exam_questions(self, topic: str, *, count: int = 3) -> list[PracticeQuestion]:
+        prompt = self._prompts.load("exam_questions", topic=topic, count=count)
+        raw = await self._llm_client.complete(prompt)
+        return self._parse_questions(raw, fallback_topic=topic, count=count)
 
     @staticmethod
     def _normalize(value: str) -> str:

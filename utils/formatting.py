@@ -23,3 +23,10 @@ def format_questions_block(questions: list[str]) -> str:
         return ""
     lines = "\n".join(f"{idx + 1}. {question}" for idx, question in enumerate(questions))
     return f"*Практика (3 вопроса):*\n{lines}"
+
+
+def format_suggestions_text(suggestions: list[str]) -> str:
+    if not suggestions:
+        return "Пока нет рекомендаций тем."
+    lines = "\n".join(f"• {topic}" for topic in suggestions)
+    return f"*Рекомендуемые темы:*\n{lines}"

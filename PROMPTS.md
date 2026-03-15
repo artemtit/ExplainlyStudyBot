@@ -266,22 +266,27 @@ Improve Telegram message formatting.
 
 
 === PROMPT 027 ===
+DONE
 Add lesson retry command.
 
 
 === PROMPT 028 ===
+DONE
 Add topic suggestion system.
 
 
 === PROMPT 029 ===
+DONE
 Add user session tracking.
 
 
 === PROMPT 030 ===
+DONE
 Store learning history.
 
 
 === PROMPT 031 ===
+DONE
 Create analytics module.
 
 Track:
@@ -291,22 +296,27 @@ topics.
 
 
 === PROMPT 032 ===
+DONE
 Add rate limiting.
 
 
 === PROMPT 033 ===
+DONE
 Add LLM cost logging.
 
 
 === PROMPT 034 ===
+DONE
 Optimize prompt usage.
 
 
 === PROMPT 035 ===
+DONE
 Improve prompt instructions for teaching.
 
 
 === PROMPT 036 ===
+DONE
 Add exam-style questions.
 
 

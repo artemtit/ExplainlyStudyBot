@@ -39,7 +39,13 @@ class LlmClient:
         # Stub implementation for now. Replace with actual API call.
         if not self._api_key:
             raise RuntimeError("LLM_API_KEY is not set")
-        return LlmResponse(text=f"[LLM stub] {prompt}")
+        response = LlmResponse(text=f"[LLM stub] {prompt}")
+        self._logger.info(
+            "LLM call: prompt_chars=%s response_chars=%s",
+            len(prompt),
+            len(response.text),
+        )
+        return response
 
     def _store_cache(self, prompt: str, text: str) -> None:
         if self._cache_size <= 0:

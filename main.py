@@ -6,6 +6,8 @@ import logging
 from aiogram import Bot, Dispatcher
 
 from bot.middlewares.error_handling import ErrorHandlingMiddleware
+from bot.middlewares.rate_limit import RateLimitMiddleware
+from bot.middlewares.session_tracking import SessionTrackingMiddleware
 from config import load_settings
 from utils.logging import setup_logging
 
@@ -26,6 +28,8 @@ async def main() -> None:
     settings = load_settings()
     bot = Bot(token=settings.bot_token)
     dispatcher = Dispatcher()
+    dispatcher.update.middleware(SessionTrackingMiddleware())
+    dispatcher.update.middleware(RateLimitMiddleware(min_interval_seconds=1.0))
     dispatcher.update.middleware(ErrorHandlingMiddleware())
     _register_handlers(dispatcher)
     await dispatcher.start_polling(bot)

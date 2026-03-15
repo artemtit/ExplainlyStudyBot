@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from ai.llm_client import LlmClient
 from ai.prompts.loader import PromptLoader
 from database.repository import Repository
+from services.analytics_service import AnalyticsService
+from services.session_service import SessionService
 
 
 @dataclass
@@ -16,9 +18,18 @@ class LessonResult:
 
 
 class LessonService:
-    def __init__(self, llm_client: LlmClient, *, repository: Repository | None = None) -> None:
+    def __init__(
+        self,
+        llm_client: LlmClient,
+        *,
+        repository: Repository | None = None,
+        analytics: "AnalyticsService | None" = None,
+        session_service: "SessionService | None" = None,
+    ) -> None:
         self._llm_client = llm_client
         self._repository = repository
+        self._analytics = analytics
+        self._session_service = session_service
         self._prompts = PromptLoader()
         self._logger = logging.getLogger(__name__)
 
@@ -31,6 +42,10 @@ class LessonService:
         if self._repository and user_id is not None:
             await self._repository.store_lesson(user_id=user_id, topic=topic, content=explanation)
             self._logger.info("Lesson stored: user_id=%s topic=%s", user_id, topic)
+        if self._analytics:
+            self._analytics.record_lesson(topic)
+        if self._session_service and user_id is not None:
+            self._session_service.set_last_topic(user_id=user_id, topic=topic, mode="lesson")
         return LessonResult(topic=topic, explanation=explanation, examples=examples)
 
     @staticmethod
