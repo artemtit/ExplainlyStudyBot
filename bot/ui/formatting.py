@@ -4,6 +4,37 @@ from typing import Any, Iterable
 
 SEPARATOR = "\u2501" * 14
 BULLET = "\u2022"
+DATE_LOCALE = (
+    "января",
+    "февраля",
+    "марта",
+    "апреля",
+    "мая",
+    "июня",
+    "июля",
+    "августа",
+    "сентября",
+    "октября",
+    "ноября",
+    "декабря",
+)
+
+
+def _format_date_iso(raw: str | None) -> str | None:
+    if not raw:
+        return None
+    try:
+        date_part = raw.split("T", 1)[0]
+        year_str, month_str, day_str = date_part.split("-", 2)
+        year = int(year_str)
+        month = int(month_str)
+        day = int(day_str)
+        if not (1 <= month <= 12 and 1 <= day <= 31):
+            return None
+        month_name = DATE_LOCALE[month - 1]
+        return f"{day} {month_name} {year}"
+    except Exception:
+        return None
 
 
 def _section(title: str, body: str | None) -> str:
@@ -98,7 +129,8 @@ def format_progress(stats: dict[str, Any]) -> str:
         stage_label = stage_map.get(str(last_stage), str(last_stage))
         body_lines.append(f"\U0001F9ED \u041F\u043E\u0441\u043B\u0435\u0434\u043D\u0438\u0439 \u044D\u0442\u0430\u043F: {stage_label}")
     if last_active:
-        body_lines.append(f"\U0001F4C5 \u041F\u043E\u0441\u043B\u0435\u0434\u043D\u044F\u044F \u0430\u043A\u0442\u0438\u0432\u043D\u043E\u0441\u0442\u044C: {last_active}")
+        formatted = _format_date_iso(str(last_active)) or str(last_active)
+        body_lines.append(f"\U0001F4C5 \u041F\u043E\u0441\u043B\u0435\u0434\u043D\u044F\u044F \u0430\u043A\u0442\u0438\u0432\u043D\u043E\u0441\u0442\u044C: {formatted}")
     body = "\n".join(body_lines)
     return f"{title}\n\n{body}"
 
