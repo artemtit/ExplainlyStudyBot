@@ -145,6 +145,7 @@ async def run_async() -> None:
                 BotCommand(command="study", description="Начать обучение"),
                 BotCommand(command="cards", description="Флэшкарты"),
                 BotCommand(command="tests", description="Тесты"),
+                BotCommand(command="test", description="Тесты (алиас)"),
                 BotCommand(command="practice", description="Практика"),
                 BotCommand(command="lesson", description="Урок"),
                 BotCommand(command="continue", description="Продолжить обучение"),
