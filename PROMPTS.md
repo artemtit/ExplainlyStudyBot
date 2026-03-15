@@ -53,6 +53,7 @@ Responsibilities:
 
 
 === PROMPT 004 ===
+DONE
 Create LessonService.
 
 File:
