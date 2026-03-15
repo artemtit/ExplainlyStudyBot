@@ -16,15 +16,29 @@ PROFILE_TEXT = (
     "ID: {user_id}\n"
     "Username: {username}\n\n"
     "\u041F\u043E\u0434\u043F\u0438\u0441\u043A\u0430: Free\n"
+    "\u0422\u0435\u043C \u0438\u0437\u0443\u0447\u0435\u043D\u043E: {topics}\n"
+    "\u0422\u0435\u0441\u0442\u043E\u0432 \u043F\u0440\u043E\u0439\u0434\u0435\u043D\u043E: {tests}\n"
+    "\u0424\u043B\u044D\u0448\u043A\u0430\u0440\u0442 \u043F\u0440\u043E\u0441\u043C\u043E\u0442\u0440\u0435\u043D\u043E: {cards}\n"
     "\u0421\u0435\u0440\u0438\u044F: {streak}\n"
     "\u041F\u043E\u0441\u043B\u0435\u0434\u043D\u044F\u044F \u0442\u0435\u043C\u0430: {last_topic}"
 )
 
 
 def _format_profile(user_id: int, username: str | None, stats: dict) -> str:
+    topics = stats.get("topics_learned", 0)
+    tests = stats.get("tests_passed", 0)
+    cards = stats.get("flashcards_reviewed", 0)
     streak = stats.get("daily_streak", 0)
     last_topic = stats.get("last_topic") or "\u2014"
-    return PROFILE_TEXT.format(user_id=user_id, username=username or "\u2014", streak=streak, last_topic=last_topic)
+    return PROFILE_TEXT.format(
+        user_id=user_id,
+        username=username or "\u2014",
+        topics=topics,
+        tests=tests,
+        cards=cards,
+        streak=streak,
+        last_topic=last_topic,
+    )
 
 
 async def _open_profile(target: Message | CallbackQuery, service: LearningEngine) -> None:
