@@ -77,6 +77,12 @@ FEEDBACK_TEXT = (
     f"{SEPARATOR}\n\n"
     "\u041D\u0430\u043F\u0438\u0448\u0438\u0442\u0435 \u043E\u0442\u0437\u044B\u0432 \u0432 \u043F\u043E\u0434\u0434\u0435\u0440\u0436\u043A\u0443 \u2014 \u043C\u044B \u0432\u0441\u0435 \u0447\u0438\u0442\u0430\u0435\u043C."
 )
+STREAK_TEXT = (
+    f"{SEPARATOR}\n"
+    "\U0001F525 \u0421\u0435\u0440\u0438\u044F\n"
+    f"{SEPARATOR}\n\n"
+    "\u0422\u0432\u043E\u044F \u0442\u0435\u043A\u0443\u0449\u0430\u044F \u0441\u0435\u0440\u0438\u044F: {streak} \u0434\u043D."
+)
 ABOUT_TEXT = (
     f"{SEPARATOR}\n"
     "\u2139 \u041E \u0431\u043E\u0442\u0435\n"
@@ -88,7 +94,7 @@ UNKNOWN_COMMAND_TEXT = (
     "\u26A0 \u041D\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043D\u0430\u044F \u043A\u043E\u043C\u0430\u043D\u0434\u0430\n"
     f"{SEPARATOR}\n\n"
     "\u0414\u043E\u0441\u0442\u0443\u043F\u043D\u043E: /start, /help, /menu, /home, /topic, /recent, /study, /learn, /restart, /settings, /cards, /flashcards, /tests, /test, /practice, /lesson, /continue, /profile, /cancel, "
-    "/support, /progress, /stats, /about, /feedback, /report"
+    "/support, /progress, /stats, /streak, /about, /feedback, /report"
 )
 
 
@@ -206,6 +212,13 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
                 reply_markup=create_progress_keyboard(can_continue=bool(resume)),
             )
 
+    @router.message(Command("streak"))
+    async def streak_handler(message: Message, state: FSMContext) -> None:
+        async with await lock_manager.get(message.from_user.id):
+            stats = await material_service.get_user_stats(message.from_user.id)
+            streak = stats.get("daily_streak", 0)
+            await message.answer(STREAK_TEXT.format(streak=streak))
+
     @router.message(F.text.startswith("/"))
     async def unknown_command_handler(message: Message, state: FSMContext) -> None:
         async with await lock_manager.get(message.from_user.id):
@@ -213,6 +226,8 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
             await show_main_menu(message)
 
     return router
+
+
 
 
 
