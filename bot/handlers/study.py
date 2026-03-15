@@ -397,6 +397,11 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
             if ready:
                 await render_lesson(message, state, material_service)
 
+    @router.message(Command("continue"))
+    async def continue_command_handler(message: Message, state: FSMContext) -> None:
+        async with await lock_manager.get(message.from_user.id):
+            await resume_flow(message=message, state=state, service=material_service)
+
     @router.message(Command("topic"))
     async def topic_command_handler(message: Message, state: FSMContext) -> None:
         async with await lock_manager.get(message.from_user.id):
