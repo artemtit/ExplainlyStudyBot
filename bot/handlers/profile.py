@@ -15,17 +15,22 @@ PROFILE_TEXT = (
     f"{SEPARATOR}\n\U0001F464 \u041F\u0440\u043E\u0444\u0438\u043B\u044C\n{SEPARATOR}\n\n"
     "ID: {user_id}\n"
     "Username: {username}\n\n"
-    "\u041F\u043E\u0434\u043F\u0438\u0441\u043A\u0430: Free"
+    "\u041F\u043E\u0434\u043F\u0438\u0441\u043A\u0430: Free\n"
+    "\u0421\u0435\u0440\u0438\u044F: {streak}\n"
+    "\u041F\u043E\u0441\u043B\u0435\u0434\u043D\u044F\u044F \u0442\u0435\u043C\u0430: {last_topic}"
 )
 
 
-def _format_profile(user_id: int, username: str | None) -> str:
-    return PROFILE_TEXT.format(user_id=user_id, username=username or "\u2014")
+def _format_profile(user_id: int, username: str | None, stats: dict) -> str:
+    streak = stats.get("daily_streak", 0)
+    last_topic = stats.get("last_topic") or "\u2014"
+    return PROFILE_TEXT.format(user_id=user_id, username=username or "\u2014", streak=streak, last_topic=last_topic)
 
 
-async def _open_profile(target: Message | CallbackQuery) -> None:
+async def _open_profile(target: Message | CallbackQuery, service: LearningEngine) -> None:
     user = target.from_user
-    text = _format_profile(user.id, user.username)
+    stats = await service.get_user_stats(user.id)
+    text = _format_profile(user.id, user.username, stats)
     if isinstance(target, CallbackQuery):
         await edit_or_send(target, text, reply_markup=create_profile_keyboard())
     else:
@@ -38,7 +43,7 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
     @router.message(F.text == BTN_PROFILE)
     async def profile_handler(message: Message, state: FSMContext) -> None:
         async with await lock_manager.get(message.from_user.id):
-            await _open_profile(message)
+            await _open_profile(message, material_service)
 
     @router.callback_query(F.data == "profile:back")
     async def profile_back_handler(call: CallbackQuery, state: FSMContext) -> None:
@@ -49,6 +54,6 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
     async def profile_subscription_handler(call: CallbackQuery, state: FSMContext) -> None:
         async with await lock_manager.get(call.from_user.id):
             await call.answer()
-            await _open_profile(call)
+            await _open_profile(call, material_service)
 
     return router
