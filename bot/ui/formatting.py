@@ -78,6 +78,7 @@ def format_progress(stats: dict[str, Any]) -> str:
     streak = stats.get("daily_streak", 0)
     last_topic = stats.get("last_topic")
     last_stage = stats.get("last_stage")
+    last_active = stats.get("last_active_date")
     stage_map = {
         "lesson": "\u0423\u0440\u043e\u043a",
         "flashcards": "\u041a\u0430\u0440\u0442\u043e\u0447\u043a\u0438",
@@ -96,6 +97,8 @@ def format_progress(stats: dict[str, Any]) -> str:
     if last_stage:
         stage_label = stage_map.get(str(last_stage), str(last_stage))
         body_lines.append(f"\U0001F9ED \u041F\u043E\u0441\u043B\u0435\u0434\u043D\u0438\u0439 \u044D\u0442\u0430\u043F: {stage_label}")
+    if last_active:
+        body_lines.append(f"\U0001F4C5 \u041F\u043E\u0441\u043B\u0435\u0434\u043D\u044F\u044F \u0430\u043A\u0442\u0438\u0432\u043D\u043E\u0441\u0442\u044C: {last_active}")
     body = "\n".join(body_lines)
     return f"{title}\n\n{body}"
 
