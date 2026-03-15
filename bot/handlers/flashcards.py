@@ -132,8 +132,8 @@ async def open_flashcards(
 
     await state.set_state(StudyState.in_flashcards)
     if reset_index:
-        await state.update_data(card_index=0)
-    await state.update_data(flash_show_answer=False, flash_order=None)
+        await state.update_data(card_index=0, flash_order=None)
+    await state.update_data(flash_show_answer=False)
 
     data = await state.get_data()
     topic = str(data.get("topic") or "")
@@ -207,7 +207,7 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
     async def flash_restart_handler(call: CallbackQuery, state: FSMContext) -> None:
         async with await lock_manager.get(call.from_user.id):
             await call.answer()
-            await state.update_data(card_index=0, flash_show_answer=False)
+            await state.update_data(card_index=0, flash_show_answer=False, flash_order=None)
             data = await state.get_data()
             topic = str(data.get("topic") or "")
             await maybe_save_resume_state(
