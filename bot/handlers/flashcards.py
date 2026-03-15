@@ -196,6 +196,26 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
             await material_service.record_activity(call.from_user.id, last_topic=topic, last_stage="flashcards")
             await _render_card(call, state, material_service)
 
+    @router.callback_query(F.data == "flash:restart")
+    async def flash_restart_handler(call: CallbackQuery, state: FSMContext) -> None:
+        async with await lock_manager.get(call.from_user.id):
+            await call.answer()
+            await state.update_data(card_index=0, flash_show_answer=False)
+            data = await state.get_data()
+            topic = str(data.get("topic") or "")
+            await maybe_save_resume_state(
+                state,
+                material_service,
+                user_id=call.from_user.id,
+                topic=topic,
+                stage="flashcards",
+                card_index=0,
+                test_index=int(data.get("test_index", 0)),
+                test_score=int(data.get("test_score", 0)),
+            )
+            await material_service.record_activity(call.from_user.id, last_topic=topic, last_stage="flashcards")
+            await _render_card(call, state, material_service)
+
     @router.callback_query(F.data == "flash:back")
     async def flash_back_handler(call: CallbackQuery, state: FSMContext) -> None:
         async with await lock_manager.get(call.from_user.id):

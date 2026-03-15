@@ -23,6 +23,7 @@ BTN_BACK = "\u2B05 \u041D\u0430\u0437\u0430\u0434"
 
 BTN_SHOW_ANSWER = "\U0001F441 \u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C \u043E\u0442\u0432\u0435\u0442"
 BTN_NEXT = "\u27A1 \u0414\u0430\u043B\u044C\u0448\u0435"
+BTN_FLASH_RESTART = "\U0001F501 \u041F\u043E\u0432\u0442\u043E\u0440\u0438\u0442\u044C"
 BTN_TEST_NEW = "\U0001F501 \u041D\u043E\u0432\u044B\u0439 \u0442\u0435\u0441\u0442"
 BTN_REVIEW_WRONG = "\U0001F4D8 \u041F\u043E\u0432\u0442\u043E\u0440\u0438\u0442\u044C \u043E\u0448\u0438\u0431\u043A\u0438"
 BTN_REVIEW_LESSON = "\U0001F4D8 \u041A \u0443\u0440\u043E\u043A\u0443"
@@ -95,6 +96,7 @@ def create_flashcards_keyboard(*, show_answer: bool) -> InlineKeyboardMarkup:
         keyboard.append([_inline_button(BTN_NEXT, "flash:next")])
     else:
         keyboard.append([_inline_button(BTN_SHOW_ANSWER, "flash:show")])
+    keyboard.append([_inline_button(BTN_FLASH_RESTART, "flash:restart")])
     keyboard.append([_inline_button(BTN_BACK, "flash:back")])
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
