@@ -1,62 +1,79 @@
-from __future__ import annotations
+﻿from __future__ import annotations
+
+from dataclasses import dataclass
 
 from aiogram import F, Router
-from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery
+from aiogram.filters import Command
+from aiogram.types import Message
 
-from bot.handlers.common import ensure_material_data
-from bot.keyboards.study_menu import practice_kb, stage_nav_kb
-from bot.utils.locks import UserLockManager
-from bot.utils.strings import PRACTICE_MISSING, PRACTICE_TEXT, SOLUTION_TEXT
-from bot.utils.telegram_utils import edit_or_send
-from bot.utils.text_format import format_stage_header
+from ai.llm_client import LlmClient
+from services.question_service import PracticeQuestion, QuestionService
+from utils.formatting import format_question_text
+from utils.validation import validate_topic
+
+router = Router(name="practice")
+
+_llm_client = LlmClient()
+_question_service = QuestionService(_llm_client)
 
 
-async def open_practice(call: CallbackQuery, state: FSMContext) -> None:
-    await state.update_data(current_stage="practice")
-    payload = await ensure_material_data(call, state)
-    if payload is None:
+@dataclass
+class PracticeSession:
+    questions: list[PracticeQuestion]
+    index: int = 0
+
+
+_sessions: dict[int, PracticeSession] = {}
+
+
+async def _send_question(message: Message, session: PracticeSession) -> None:
+    question = session.questions[session.index]
+    await message.answer(
+        format_question_text(
+            question.question,
+            index=session.index + 1,
+            total=len(session.questions),
+        )
+    )
+
+
+@router.message(Command("practice"))
+async def practice_start_handler(message: Message) -> None:
+    topic = message.get_args().strip()
+    if not topic:
+        await message.answer("Укажи тему после команды, например: /practice Дроби")
         return
-
-    material, topic = payload
-    practice = material.get("practice", {})
-    if not isinstance(practice, dict):
-        practice = {}
-
-    problem = str(practice.get("problem") or "")
-    header = format_stage_header(topic, "practice")
-
-    if not problem:
-        await edit_or_send(call, f"{header}\n\n{PRACTICE_MISSING}", reply_markup=stage_nav_kb("practice"))
+    validated = validate_topic(topic)
+    if not validated:
+        await message.answer("Тема слишком короткая или длинная. Попробуй еще раз.")
         return
+    questions = await _question_service.generate_questions(validated)
+    session = PracticeSession(questions=questions)
+    _sessions[message.from_user.id] = session
+    await _send_question(message, session)
 
-    await edit_or_send(call, f"{header}\n\n{PRACTICE_TEXT.format(problem=problem)}", reply_markup=practice_kb())
 
+@router.message(F.text)
+async def practice_answer_handler(message: Message) -> None:
+    if message.text.startswith("/"):
+        return
+    session = _sessions.get(message.from_user.id)
+    if not session:
+        return
+    current = session.questions[session.index]
+    is_correct = await _question_service.validate_answer(
+        question=current,
+        user_answer=message.text,
+    )
+    if is_correct:
+        await message.answer("Верно! Отличная работа.")
+    else:
+        answer = current.answer or "Нет эталонного ответа."
+        await message.answer(f"Похоже, есть неточность. Пример ответа: {answer}")
 
-def build_router(lock_manager: UserLockManager) -> Router:
-    router = Router(name="practice")
-
-    @router.callback_query(F.data == "practice")
-    async def practice_handler(call: CallbackQuery, state: FSMContext) -> None:
-        async with await lock_manager.get(call.from_user.id):
-            await call.answer()
-            await open_practice(call, state)
-
-    @router.callback_query(F.data == "solution")
-    async def solution_handler(call: CallbackQuery, state: FSMContext) -> None:
-        async with await lock_manager.get(call.from_user.id):
-            await call.answer()
-            payload = await ensure_material_data(call, state)
-            if payload is None:
-                return
-
-            material, topic = payload
-            practice = material.get("practice", {})
-            if not isinstance(practice, dict):
-                practice = {}
-
-            solution = str(practice.get("solution") or "�")
-            header = format_stage_header(topic, "practice")
-            await edit_or_send(call, f"{header}\n\n{SOLUTION_TEXT.format(solution=solution)}", reply_markup=stage_nav_kb("practice"))
-
-    return router
+    session.index += 1
+    if session.index >= len(session.questions):
+        _sessions.pop(message.from_user.id, None)
+        await message.answer("Практика завершена. Можешь начать новую тему.")
+        return
+    await _send_question(message, session)

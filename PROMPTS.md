@@ -88,6 +88,7 @@ Responsibilities:
 
 
 === PROMPT 007 ===
+DONE
 Create ai/prompts folder.
 
 Add prompt templates:
@@ -98,6 +99,7 @@ evaluate_answer.txt
 
 
 === PROMPT 008 ===
+DONE
 Implement prompt loader.
 
 File:
@@ -109,6 +111,7 @@ Responsibilities:
 
 
 === PROMPT 009 ===
+DONE
 Create bot/handlers/lesson.py.
 
 Responsibilities:
@@ -118,6 +121,7 @@ Responsibilities:
 
 
 === PROMPT 010 ===
+DONE
 Create bot/handlers/practice.py.
 
 Responsibilities:
@@ -126,6 +130,7 @@ Responsibilities:
 
 
 === PROMPT 011 ===
+DONE
 Implement question evaluation.
 
 Flow:
@@ -140,6 +145,7 @@ feedback
 
 
 === PROMPT 012 ===
+DONE
 Create utils/formatting.py.
 
 Functions:
@@ -148,6 +154,7 @@ Functions:
 
 
 === PROMPT 013 ===
+DONE
 Create utils/validation.py.
 
 Functions:
@@ -156,6 +163,7 @@ Functions:
 
 
 === PROMPT 014 ===
+DONE
 Create database/models.py.
 
 Tables:
@@ -166,6 +174,7 @@ answers
 
 
 === PROMPT 015 ===
+DONE
 Create database/repository.py.
 
 Responsibilities:
@@ -175,6 +184,7 @@ Responsibilities:
 
 
 === PROMPT 016 ===
+DONE
 Connect LessonService to database.
 
 Save:
