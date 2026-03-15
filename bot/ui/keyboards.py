@@ -144,6 +144,7 @@ def create_test_done_keyboard() -> InlineKeyboardMarkup:
         [_inline_button(BTN_TEST_RETRY, "test:retry")],
         [_inline_button(BTN_TEST_NEW, "test:new")],
         [_inline_button(BTN_REVIEW_WRONG, "test:review_wrong")],
+        [_inline_button(BTN_REVIEW_LESSON, "test:review")],
         [_inline_button(BTN_PRACTICE, "test:practice")],
         [_inline_button(BTN_BACK_MENU, "test:menu")],
     ]
