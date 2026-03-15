@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from aiogram import F, Router
+from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
@@ -57,6 +58,11 @@ async def _open_profile(target: Message | CallbackQuery, service: LearningEngine
 
 def build_router(material_service: LearningEngine, lock_manager: UserLockManager, support_url: str | None) -> Router:
     router = Router(name="profile")
+
+    @router.message(Command("profile"))
+    async def profile_command_handler(message: Message, state: FSMContext) -> None:
+        async with await lock_manager.get(message.from_user.id):
+            await _open_profile(message, material_service, support_url)
 
     @router.message(F.text == BTN_PROFILE)
     async def profile_handler(message: Message, state: FSMContext) -> None:
