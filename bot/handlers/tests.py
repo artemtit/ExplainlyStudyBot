@@ -341,6 +341,12 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
             await call.answer()
             await open_test(call, state, material_service, reset_progress=True)
 
+    @router.callback_query(F.data == "lesson:practice")
+    async def practice_lesson_handler(call: CallbackQuery, state: FSMContext) -> None:
+        async with await lock_manager.get(call.from_user.id):
+            await call.answer()
+            await open_practice(call, state, material_service, show_solution=False)
+
     @router.callback_query(F.data == "test:next")
     async def test_next_handler(call: CallbackQuery, state: FSMContext) -> None:
         async with await lock_manager.get(call.from_user.id):
