@@ -8,7 +8,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from bot.learning_engine.engine import LearningEngine
-from bot.ui.formatting import SEPARATOR, format_progress
+from bot.ui.formatting import SEPARATOR, format_no_resume, format_progress
 from bot.ui.keyboards import BTN_HELP, BTN_SUPPORT, create_main_menu, create_progress_keyboard
 from bot.utils.locks import UserLockManager
 
@@ -83,6 +83,13 @@ STREAK_TEXT = (
     f"{SEPARATOR}\n\n"
     "\u0422\u0432\u043E\u044F \u0442\u0435\u043A\u0443\u0449\u0430\u044F \u0441\u0435\u0440\u0438\u044F: {streak} \u0434\u043D."
 )
+LAST_SESSION_TEXT = (
+    f"{SEPARATOR}\n"
+    "\U0001F4CC \u041F\u043E\u0441\u043B\u0435\u0434\u043D\u044F\u044F \u0442\u0435\u043C\u0430\n"
+    f"{SEPARATOR}\n\n"
+    "\u0422\u0435\u043C\u0430: {topic}\n"
+    "\u0420\u0435\u0436\u0438\u043C: {stage}"
+)
 ABOUT_TEXT = (
     f"{SEPARATOR}\n"
     "\u2139 \u041E \u0431\u043E\u0442\u0435\n"
@@ -93,7 +100,7 @@ UNKNOWN_COMMAND_TEXT = (
     f"{SEPARATOR}\n"
     "\u26A0 \u041D\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043D\u0430\u044F \u043A\u043E\u043C\u0430\u043D\u0434\u0430\n"
     f"{SEPARATOR}\n\n"
-    "\u0414\u043E\u0441\u0442\u0443\u043F\u043D\u043E: /start, /help, /menu, /home, /topic, /recent, /study, /learn, /restart, /settings, /cards, /flashcards, /tests, /test, /practice, /lesson, /continue, /profile, /cancel, "
+    "\u0414\u043E\u0441\u0442\u0443\u043F\u043D\u043E: /start, /help, /menu, /home, /topic, /recent, /study, /learn, /restart, /settings, /cards, /flashcards, /tests, /test, /practice, /lesson, /continue, /last, /profile, /cancel, "
     "/support, /progress, /stats, /streak, /about, /feedback, /report"
 )
 
@@ -219,6 +226,27 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
             streak = stats.get("daily_streak", 0)
             await message.answer(STREAK_TEXT.format(streak=streak))
 
+    @router.message(Command("last"))
+    async def last_session_handler(message: Message, state: FSMContext) -> None:
+        async with await lock_manager.get(message.from_user.id):
+            resume = await material_service.load_resume_state(message.from_user.id)
+            if not resume:
+                await message.answer(format_no_resume())
+                return
+            topic = str(resume.get("last_topic") or resume.get("topic") or "")
+            if not topic:
+                await message.answer(format_no_resume())
+                return
+            stage_raw = str(resume.get("last_stage") or "lesson")
+            stage_map = {
+                "lesson": "\u0443\u0440\u043e\u043a",
+                "flashcards": "\u0444\u043b\u044d\u0448\u043a\u0430\u0440\u0442\u044b",
+                "test": "\u0442\u0435\u0441\u0442",
+                "practice": "\u043f\u0440\u0430\u043a\u0442\u0438\u043a\u0430",
+            }
+            stage_label = stage_map.get(stage_raw, stage_raw)
+            await message.answer(LAST_SESSION_TEXT.format(topic=topic, stage=stage_label))
+
     @router.message(F.text.startswith("/"))
     async def unknown_command_handler(message: Message, state: FSMContext) -> None:
         async with await lock_manager.get(message.from_user.id):
@@ -226,6 +254,8 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
             await show_main_menu(message)
 
     return router
+
+
 
 
 

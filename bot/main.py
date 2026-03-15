@@ -152,6 +152,7 @@ async def run_async() -> None:
                 BotCommand(command="practice", description="Практика"),
                 BotCommand(command="lesson", description="Урок"),
                 BotCommand(command="continue", description="Продолжить обучение"),
+                BotCommand(command="last", description="Последняя тема"),
                 BotCommand(command="profile", description="Профиль пользователя"),
                 BotCommand(command="cancel", description="Отменить текущее действие"),
                 BotCommand(command="support", description="Связаться с поддержкой"),
