@@ -41,6 +41,7 @@ BTN_SETTINGS_RESET_CANCEL = "\u2B05 \u041D\u0430\u0437\u0430\u0434"
 BTN_EXPLAIN_SIMPLE = "\u041e\u0447\u0435\u043d\u044c \u043f\u0440\u043e\u0441\u0442\u043e"
 BTN_EXPLAIN_NORMAL = "\u041d\u043e\u0440\u043c\u0430\u043b\u044c\u043d\u043e"
 BTN_EXPLAIN_HARD = "\u0421\u043b\u043e\u0436\u043d\u043e"
+BTN_RECENT_NEW_TOPIC = "\U0001F4DA \u041D\u043E\u0432\u0430\u044F \u0442\u0435\u043C\u0430"
 
 
 def _reply_button(text: str) -> KeyboardButton:
@@ -211,4 +212,5 @@ def create_recent_topics_keyboard(topics: list[str]) -> InlineKeyboardMarkup:
     for idx, topic in enumerate(topics):
         label = _truncate_text(topic, limit=48)
         keyboard.append([_inline_button(label, f"recent:pick:{idx}")])
+    keyboard.append([_inline_button(BTN_RECENT_NEW_TOPIC, "recent:new")])
     return InlineKeyboardMarkup(inline_keyboard=keyboard)

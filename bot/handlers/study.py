@@ -381,6 +381,12 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
                 reply_markup=create_explanation_level_keyboard(),
             )
 
+    @router.callback_query(StateFilter(StudyState.awaiting_topic), F.data == "recent:new")
+    async def recent_new_topic_handler(call: CallbackQuery, state: FSMContext) -> None:
+        async with await lock_manager.get(call.from_user.id):
+            await call.answer()
+            await call.message.answer(format_topic_prompt())
+
     @router.message(F.text == BTN_CONTINUE)
     async def continue_handler(message: Message, state: FSMContext) -> None:
         async with await lock_manager.get(message.from_user.id):
