@@ -39,7 +39,7 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
             await call.answer()
             if call.message is None:
                 return
-            await show_topic_entry(call.message, state, material_service)
+            await show_topic_entry(call.message, state, material_service, user_id=call.from_user.id)
 
     @router.callback_query(F.data == "progress:back")
     async def progress_back_handler(call: CallbackQuery, state: FSMContext) -> None:

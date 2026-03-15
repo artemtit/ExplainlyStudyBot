@@ -325,9 +325,9 @@ async def resume_flow(
     await render_lesson(message, state, service)
 
 
-async def show_topic_entry(message: Message, state: FSMContext, service: LearningEngine) -> None:
+async def show_topic_entry(message: Message, state: FSMContext, service: LearningEngine, *, user_id: int) -> None:
     await state.set_state(StudyState.awaiting_topic)
-    recent_topics = await service.get_recent_topics(message.from_user.id, limit=3)
+    recent_topics = await service.get_recent_topics(user_id, limit=3)
     if recent_topics:
         await state.update_data(recent_topics=recent_topics)
         await message.answer(
@@ -344,7 +344,7 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
     @router.message(F.text == BTN_START_LEARNING)
     async def start_learning_handler(message: Message, state: FSMContext) -> None:
         async with await lock_manager.get(message.from_user.id):
-            await show_topic_entry(message, state, material_service)
+            await show_topic_entry(message, state, material_service, user_id=message.from_user.id)
 
     @router.callback_query(StateFilter(StudyState.awaiting_topic), F.data.startswith("recent:pick:"))
     async def recent_topic_handler(call: CallbackQuery, state: FSMContext) -> None:
@@ -423,6 +423,11 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
                 return
 
             level_raw = (call.data or "").split(":", 1)[-1]
+            if level_raw == "back":
+                await call.answer()
+                if call.message:
+                    await show_topic_entry(call.message, state, material_service, user_id=call.from_user.id)
+                return
             explanation_level = level_raw if level_raw in {"simple", "normal", "hard"} else "normal"
 
             now = time.monotonic()
