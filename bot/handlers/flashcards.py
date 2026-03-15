@@ -162,6 +162,11 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
         async with await lock_manager.get(message.from_user.id):
             await open_flashcards(message, state, material_service, reset_index=True)
 
+    @router.message(Command("flashcards"))
+    async def flashcards_alias_handler(message: Message, state: FSMContext) -> None:
+        async with await lock_manager.get(message.from_user.id):
+            await open_flashcards(message, state, material_service, reset_index=True)
+
     @router.message(F.text == BTN_FLASHCARDS)
     async def flashcards_menu_handler(message: Message, state: FSMContext) -> None:
         async with await lock_manager.get(message.from_user.id):
