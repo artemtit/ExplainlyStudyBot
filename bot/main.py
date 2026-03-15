@@ -71,16 +71,21 @@ def _build_storage():
     return MemoryStorage()
 
 
-def _build_dispatcher(learning_engine: LearningEngine, lock_manager: UserLockManager, free_tier_notice: bool) -> Dispatcher:
+def _build_dispatcher(
+    learning_engine: LearningEngine,
+    lock_manager: UserLockManager,
+    free_tier_notice: bool,
+    support_url: str | None,
+) -> Dispatcher:
     dp = Dispatcher(storage=_build_storage())
 
-    dp.include_router(build_start_router(learning_engine, lock_manager))
+    dp.include_router(build_start_router(learning_engine, lock_manager, support_url))
     dp.include_router(build_study_router(learning_engine, lock_manager, free_tier_notice))
     dp.include_router(build_flashcards_router(learning_engine, lock_manager))
     dp.include_router(build_tests_router(learning_engine, lock_manager))
     dp.include_router(build_progress_router(learning_engine, lock_manager))
     dp.include_router(build_profile_router(learning_engine, lock_manager))
-    dp.include_router(build_settings_router(learning_engine, lock_manager))
+    dp.include_router(build_settings_router(learning_engine, lock_manager, support_url))
 
     @dp.error()
     async def on_error(event: ErrorEvent) -> None:
@@ -126,7 +131,7 @@ async def run_async() -> None:
     lock_manager = UserLockManager()
 
     bot = Bot(token=settings.telegram_token, default=DefaultBotProperties())
-    dp = _build_dispatcher(learning_engine, lock_manager, settings.free_tier_notice)
+    dp = _build_dispatcher(learning_engine, lock_manager, settings.free_tier_notice, settings.support_url)
 
     health_task = asyncio.create_task(_run_health_server())
     try:

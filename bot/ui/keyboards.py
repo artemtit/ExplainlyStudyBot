@@ -14,6 +14,7 @@ BTN_TEST = "\U0001F9EA \u0422\u0435\u0441\u0442"
 BTN_PROGRESS = "\U0001F4CA \u041F\u0440\u043E\u0433\u0440\u0435\u0441\u0441"
 BTN_SETTINGS = "\u2699 \u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438"
 BTN_PROFILE = "\U0001F464 \u041F\u0440\u043E\u0444\u0438\u043B\u044C"
+BTN_SUPPORT = "\U0001F198 \u041F\u043E\u0434\u0434\u0435\u0440\u0436\u043A\u0430"
 
 BTN_BACK_MENU = "\u2B05 \u041C\u0435\u043D\u044E"
 BTN_BACK = "\u2B05 \u041D\u0430\u0437\u0430\u0434"
@@ -41,6 +42,10 @@ def _reply_button(text: str) -> KeyboardButton:
 
 def _inline_button(text: str, callback_data: str) -> InlineKeyboardButton:
     return InlineKeyboardButton(text=text, callback_data=callback_data)
+
+
+def _inline_url_button(text: str, url: str) -> InlineKeyboardButton:
+    return InlineKeyboardButton(text=text, url=url)
 
 
 def create_main_menu() -> ReplyKeyboardMarkup:
@@ -134,12 +139,14 @@ def create_profile_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
-def create_settings_keyboard() -> InlineKeyboardMarkup:
-    keyboard = [
+def create_settings_keyboard(*, support_url: str | None = None) -> InlineKeyboardMarkup:
+    keyboard: list[list[InlineKeyboardButton]] = [
         [_inline_button(BTN_SETTINGS_NOTIFICATIONS, "settings:notifications")],
         [_inline_button(BTN_SETTINGS_RESET, "settings:reset")],
-        [_inline_button(BTN_BACK_MENU, "settings:back")],
     ]
+    if support_url:
+        keyboard.append([_inline_url_button(BTN_SUPPORT, support_url)])
+    keyboard.append([_inline_button(BTN_BACK_MENU, "settings:back")])
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 

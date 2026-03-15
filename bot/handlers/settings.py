@@ -24,24 +24,24 @@ RESET_FAILED_TEXT = (
 )
 
 
-async def _send_settings(target: Message | CallbackQuery) -> None:
+async def _send_settings(target: Message | CallbackQuery, *, support_url: str | None) -> None:
     message = target.message if isinstance(target, CallbackQuery) else target
-    await message.answer(format_settings(), reply_markup=create_settings_keyboard())
+    await message.answer(format_settings(), reply_markup=create_settings_keyboard(support_url=support_url))
 
 
-def build_router(material_service: LearningEngine, lock_manager: UserLockManager) -> Router:
+def build_router(material_service: LearningEngine, lock_manager: UserLockManager, support_url: str | None) -> Router:
     router = Router(name="settings")
 
     @router.message(F.text == BTN_SETTINGS)
     async def settings_handler(message: Message, state: FSMContext) -> None:
         async with await lock_manager.get(message.from_user.id):
-            await _send_settings(message)
+            await _send_settings(message, support_url=support_url)
 
     @router.callback_query(F.data == "profile:settings")
     async def profile_settings_handler(call: CallbackQuery, state: FSMContext) -> None:
         async with await lock_manager.get(call.from_user.id):
             await call.answer()
-            await _send_settings(call)
+            await _send_settings(call, support_url=support_url)
 
     @router.callback_query(F.data == "settings:notifications")
     async def notifications_handler(call: CallbackQuery, state: FSMContext) -> None:
