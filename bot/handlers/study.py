@@ -474,4 +474,10 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
             await show_main_menu(call)
             await state.set_state(StudyState.in_lesson)
 
+    @router.callback_query(F.data == "lesson:menu")
+    async def lesson_menu_handler(call: CallbackQuery, state: FSMContext) -> None:
+        async with await lock_manager.get(call.from_user.id):
+            await show_main_menu(call)
+            await state.set_state(StudyState.in_lesson)
+
     return router

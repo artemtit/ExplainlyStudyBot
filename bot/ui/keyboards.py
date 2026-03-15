@@ -94,6 +94,7 @@ def create_lesson_keyboard() -> InlineKeyboardMarkup:
         [_inline_button(BTN_FLASHCARDS, "lesson:flashcards")],
         [_inline_button(BTN_TEST, "lesson:test")],
         [_inline_button(BTN_PRACTICE, "lesson:practice")],
+        [_inline_button(BTN_BACK_MENU, "lesson:menu")],
         [_inline_button(BTN_BACK, "lesson:back")],
     ]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
