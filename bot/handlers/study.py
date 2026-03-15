@@ -412,6 +412,11 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
         async with await lock_manager.get(message.from_user.id):
             await show_topic_entry(message, state, material_service, user_id=message.from_user.id)
 
+    @router.message(Command("learn"))
+    async def learn_command_handler(message: Message, state: FSMContext) -> None:
+        async with await lock_manager.get(message.from_user.id):
+            await show_topic_entry(message, state, material_service, user_id=message.from_user.id)
+
     @router.message(F.text == BTN_START_LEARNING)
     async def start_learning_handler(message: Message, state: FSMContext) -> None:
         async with await lock_manager.get(message.from_user.id):
