@@ -38,7 +38,7 @@ HELP_TEXT = (
     "\u2022 /menu \u2014 \u0432\u0435\u0440\u043D\u0443\u0442\u044C\u0441\u044F \u0432 \u0433\u043B\u0430\u0432\u043D\u043E\u0435 \u043C\u0435\u043D\u044E.\n"
     "\u2022 /cancel \u2014 \u043E\u0442\u043C\u0435\u043D\u0438\u0442\u044C \u0442\u0435\u043A\u0443\u0449\u0435\u0435 \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0435.\n\n"
     "\u2022 /support \u2014 \u0441\u0432\u044F\u0437\u0430\u0442\u044C\u0441\u044F \u0441 \u043F\u043E\u0434\u0434\u0435\u0440\u0436\u043A\u043E\u0439.\n\n"
-    "\u2022 /progress \u2014 \u043F\u043E\u0441\u043C\u043E\u0442\u0440\u0435\u0442\u044C \u043F\u0440\u043E\u0433\u0440\u0435\u0441\u0441.\n\n\u2022 /stats \u2014 \u0442\u043e \u0436\u0435, \u0447\u0442\u043e /progress.\n\n\u2022 /about \u2014 \u043e \u0431 \u043e \u0442 \u0431 \u043e \u0442 \u0435.\n\n"
+    "\u2022 /progress \u2014 \u043F\u043E\u0441\u043C\u043E\u0442\u0440\u0435\u0442\u044C \u043F\u0440\u043E\u0433\u0440\u0435\u0441\u0441.\n\n\u2022 /stats \u2014 \u0442\u043e \u0436\u0435, \u0447\u0442\u043e /progress.\n\n\u2022 /about \u2014 \u043e \u0431 \u043e \u0442 \u0431 \u043e \u0442 \u0435.\n\n\u2022 /feedback \u2014 \u043e\u0431\u0440\u0430\u0442\u043d\u0430\u044f \u0441\u0432\u044f\u0437\u044c.\n\n"
     "\u0415\u0441\u043B\u0438 \u0447\u0442\u043E-\u0442\u043E \u043D\u0435 \u0440\u0430\u0431\u043E\u0442\u0430\u0435\u0442, \u043D\u0430\u043F\u0438\u0448\u0438 \u0432 \u043F\u043E\u0434\u0434\u0435\u0440\u0436\u043A\u0443."
 )
 SUPPORT_TEXT = (
@@ -53,6 +53,12 @@ SUPPORT_MISSING_TEXT = (
     f"{SEPARATOR}\n\n"
     "\u041A\u0430\u043D\u0430\u043B \u043F\u043E\u0434\u0434\u0435\u0440\u0436\u043A\u0438 \u043F\u043E\u043A\u0430 \u043D\u0435 \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D."
 )
+FEEDBACK_TEXT = (
+    f"{SEPARATOR}\n"
+    "\u270D \u041E\u0442\u0437\u044B\u0432\n"
+    f"{SEPARATOR}\n\n"
+    "\u041D\u0430\u043F\u0438\u0448\u0438\u0442\u0435 \u043E\u0442\u0437\u044B\u0432 \u0432 \u043F\u043E\u0434\u0434\u0435\u0440\u0436\u043A\u0443 \u2014 \u043C\u044B \u0432\u0441\u0435 \u0447\u0438\u0442\u0430\u0435\u043C."
+)
 ABOUT_TEXT = (
     f"{SEPARATOR}\n"
     "\u2139 \u041E \u0431\u043E\u0442\u0435\n"
@@ -63,7 +69,7 @@ UNKNOWN_COMMAND_TEXT = (
     f"{SEPARATOR}\n"
     "\u26A0 \u041D\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043D\u0430\u044F \u043A\u043E\u043C\u0430\u043D\u0434\u0430\n"
     f"{SEPARATOR}\n\n"
-    "\u0414\u043E\u0441\u0442\u0443\u043F\u043D\u043E: /start, /help, /menu, /cancel, /support, /progress"
+    "\u0414\u043E\u0441\u0442\u0443\u043F\u043D\u043E: /start, /help, /menu, /cancel, /support, /progress, /stats, /about, /feedback"
 )
 
 
@@ -123,6 +129,11 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
                 await message.answer(SUPPORT_TEXT, reply_markup=_build_help_keyboard(support_url))
             else:
                 await message.answer(SUPPORT_MISSING_TEXT)
+
+    @router.message(Command("feedback"))
+    async def feedback_handler(message: Message, state: FSMContext) -> None:
+        async with await lock_manager.get(message.from_user.id):
+            await message.answer(FEEDBACK_TEXT, reply_markup=_build_help_keyboard(support_url))
 
     @router.message(Command("about"))
     async def about_handler(message: Message, state: FSMContext) -> None:
