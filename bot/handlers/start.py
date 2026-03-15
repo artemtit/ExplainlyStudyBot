@@ -8,8 +8,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from bot.learning_engine.engine import LearningEngine
-from bot.ui.formatting import SEPARATOR
-from bot.ui.keyboards import create_main_menu
+from bot.ui.formatting import SEPARATOR, format_progress
+from bot.ui.keyboards import create_main_menu, create_progress_keyboard
 from bot.utils.locks import UserLockManager
 
 logger = logging.getLogger(__name__)
@@ -38,6 +38,7 @@ HELP_TEXT = (
     "\u2022 /menu \u2014 \u0432\u0435\u0440\u043D\u0443\u0442\u044C\u0441\u044F \u0432 \u0433\u043B\u0430\u0432\u043D\u043E\u0435 \u043C\u0435\u043D\u044E.\n"
     "\u2022 /cancel \u2014 \u043E\u0442\u043C\u0435\u043D\u0438\u0442\u044C \u0442\u0435\u043A\u0443\u0449\u0435\u0435 \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0435.\n\n"
     "\u2022 /support \u2014 \u0441\u0432\u044F\u0437\u0430\u0442\u044C\u0441\u044F \u0441 \u043F\u043E\u0434\u0434\u0435\u0440\u0436\u043A\u043E\u0439.\n\n"
+    "\u2022 /progress \u2014 \u043F\u043E\u0441\u043C\u043E\u0442\u0440\u0435\u0442\u044C \u043F\u0440\u043E\u0433\u0440\u0435\u0441\u0441.\n\n"
     "\u0415\u0441\u043B\u0438 \u0447\u0442\u043E-\u0442\u043E \u043D\u0435 \u0440\u0430\u0431\u043E\u0442\u0430\u0435\u0442, \u043D\u0430\u043F\u0438\u0448\u0438 \u0432 \u043F\u043E\u0434\u0434\u0435\u0440\u0436\u043A\u0443."
 )
 SUPPORT_TEXT = (
@@ -56,7 +57,7 @@ UNKNOWN_COMMAND_TEXT = (
     f"{SEPARATOR}\n"
     "\u26A0 \u041D\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043D\u0430\u044F \u043A\u043E\u043C\u0430\u043D\u0434\u0430\n"
     f"{SEPARATOR}\n\n"
-    "\u0414\u043E\u0441\u0442\u0443\u043F\u043D\u043E: /start, /help, /menu, /cancel, /support"
+    "\u0414\u043E\u0441\u0442\u0443\u043F\u043D\u043E: /start, /help, /menu, /cancel, /support, /progress"
 )
 
 
@@ -110,6 +111,16 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
                 await message.answer(SUPPORT_TEXT, reply_markup=_build_help_keyboard(support_url))
             else:
                 await message.answer(SUPPORT_MISSING_TEXT)
+
+    @router.message(Command("progress"))
+    async def progress_handler(message: Message, state: FSMContext) -> None:
+        async with await lock_manager.get(message.from_user.id):
+            stats = await material_service.get_user_stats(message.from_user.id)
+            resume = await material_service.load_resume_state(message.from_user.id)
+            await message.answer(
+                format_progress(stats),
+                reply_markup=create_progress_keyboard(can_continue=bool(resume)),
+            )
 
     @router.message(F.text.startswith("/"))
     async def unknown_command_handler(message: Message, state: FSMContext) -> None:
