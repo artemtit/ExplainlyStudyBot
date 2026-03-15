@@ -15,6 +15,7 @@ BTN_PROGRESS = "\U0001F4CA \u041F\u0440\u043E\u0433\u0440\u0435\u0441\u0441"
 BTN_SETTINGS = "\u2699 \u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438"
 BTN_PROFILE = "\U0001F464 \u041F\u0440\u043E\u0444\u0438\u043B\u044C"
 BTN_PROGRESS_CONTINUE = "\U0001F525 \u041F\u0440\u043E\u0434\u043E\u043B\u0436\u0438\u0442\u044C"
+BTN_PROGRESS_NEW_TOPIC = "\U0001F4DA \u041D\u043E\u0432\u0430\u044F \u0442\u0435\u043C\u0430"
 BTN_SUPPORT = "\U0001F198 \u041F\u043E\u0434\u0434\u0435\u0440\u0436\u043A\u0430"
 
 BTN_BACK_MENU = "\u2B05 \u041C\u0435\u043D\u044E"
@@ -139,10 +140,12 @@ def create_test_review_done_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
-def create_progress_keyboard(*, can_continue: bool) -> InlineKeyboardMarkup:
+def create_progress_keyboard(*, can_continue: bool, show_new_topic: bool = True) -> InlineKeyboardMarkup:
     keyboard: list[list[InlineKeyboardButton]] = []
     if can_continue:
         keyboard.append([_inline_button(BTN_PROGRESS_CONTINUE, "progress:continue")])
+    if show_new_topic:
+        keyboard.append([_inline_button(BTN_PROGRESS_NEW_TOPIC, "progress:new_topic")])
     keyboard.append([_inline_button(BTN_BACK_MENU, "progress:back")])
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 

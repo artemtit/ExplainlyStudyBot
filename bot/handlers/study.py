@@ -325,22 +325,26 @@ async def resume_flow(
     await render_lesson(message, state, service)
 
 
+async def show_topic_entry(message: Message, state: FSMContext, service: LearningEngine) -> None:
+    await state.set_state(StudyState.awaiting_topic)
+    recent_topics = await service.get_recent_topics(message.from_user.id, limit=3)
+    if recent_topics:
+        await state.update_data(recent_topics=recent_topics)
+        await message.answer(
+            format_recent_topics(recent_topics),
+            reply_markup=create_recent_topics_keyboard(recent_topics),
+        )
+    else:
+        await message.answer(format_topic_prompt())
+
+
 def build_router(material_service: LearningEngine, lock_manager: UserLockManager, free_tier_notice: bool) -> Router:
     router = Router(name="study")
 
     @router.message(F.text == BTN_START_LEARNING)
     async def start_learning_handler(message: Message, state: FSMContext) -> None:
         async with await lock_manager.get(message.from_user.id):
-            await state.set_state(StudyState.awaiting_topic)
-            recent_topics = await material_service.get_recent_topics(message.from_user.id, limit=3)
-            if recent_topics:
-                await state.update_data(recent_topics=recent_topics)
-                await message.answer(
-                    format_recent_topics(recent_topics),
-                    reply_markup=create_recent_topics_keyboard(recent_topics),
-                )
-            else:
-                await message.answer(format_topic_prompt())
+            await show_topic_entry(message, state, material_service)
 
     @router.callback_query(StateFilter(StudyState.awaiting_topic), F.data.startswith("recent:pick:"))
     async def recent_topic_handler(call: CallbackQuery, state: FSMContext) -> None:

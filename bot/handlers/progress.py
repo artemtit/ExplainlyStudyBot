@@ -5,7 +5,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
 from bot.handlers.start import show_main_menu
-from bot.handlers.study import resume_flow
+from bot.handlers.study import resume_flow, show_topic_entry
 from bot.learning_engine.engine import LearningEngine
 from bot.ui.formatting import format_progress
 from bot.ui.keyboards import BTN_PROGRESS, create_progress_keyboard
@@ -32,6 +32,14 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
             if call.message is None:
                 return
             await resume_flow(message=call.message, state=state, service=material_service)
+
+    @router.callback_query(F.data == "progress:new_topic")
+    async def progress_new_topic_handler(call: CallbackQuery, state: FSMContext) -> None:
+        async with await lock_manager.get(call.from_user.id):
+            await call.answer()
+            if call.message is None:
+                return
+            await show_topic_entry(call.message, state, material_service)
 
     @router.callback_query(F.data == "progress:back")
     async def progress_back_handler(call: CallbackQuery, state: FSMContext) -> None:
