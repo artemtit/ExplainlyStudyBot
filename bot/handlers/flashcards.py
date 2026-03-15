@@ -251,6 +251,13 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
             await material_service.record_activity(call.from_user.id, last_topic=topic, last_stage="flashcards")
             await _render_card(call, state, material_service)
 
+    @router.callback_query(F.data == "flash:menu")
+    async def flash_menu_handler(call: CallbackQuery, state: FSMContext) -> None:
+        async with await lock_manager.get(call.from_user.id):
+            await call.answer()
+            await show_main_menu(call)
+            await state.set_state(StudyState.in_lesson)
+
     @router.callback_query(F.data == "flash:back")
     async def flash_back_handler(call: CallbackQuery, state: FSMContext) -> None:
         async with await lock_manager.get(call.from_user.id):

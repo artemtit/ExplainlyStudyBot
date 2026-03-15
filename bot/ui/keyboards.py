@@ -101,6 +101,7 @@ def create_flashcards_keyboard(*, show_answer: bool) -> InlineKeyboardMarkup:
         keyboard.append([_inline_button(BTN_SHOW_ANSWER, "flash:show")])
     keyboard.append([_inline_button(BTN_FLASH_RESTART, "flash:restart")])
     keyboard.append([_inline_button(BTN_FLASH_SHUFFLE, "flash:shuffle")])
+    keyboard.append([_inline_button(BTN_BACK_MENU, "flash:menu")])
     keyboard.append([_inline_button(BTN_BACK, "flash:back")])
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
