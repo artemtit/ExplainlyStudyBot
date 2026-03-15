@@ -5,7 +5,7 @@ import time
 from contextlib import suppress
 
 from aiogram import F, Router
-from aiogram.filters import StateFilter
+from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import BufferedInputFile, CallbackQuery, Message
 
@@ -340,6 +340,11 @@ async def show_topic_entry(message: Message, state: FSMContext, service: Learnin
 
 def build_router(material_service: LearningEngine, lock_manager: UserLockManager, free_tier_notice: bool) -> Router:
     router = Router(name="study")
+
+    @router.message(Command("topic"))
+    async def topic_command_handler(message: Message, state: FSMContext) -> None:
+        async with await lock_manager.get(message.from_user.id):
+            await show_topic_entry(message, state, material_service, user_id=message.from_user.id)
 
     @router.message(F.text == BTN_START_LEARNING)
     async def start_learning_handler(message: Message, state: FSMContext) -> None:
