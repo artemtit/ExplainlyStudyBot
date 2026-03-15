@@ -105,6 +105,7 @@ Output format:
 5. Risks and edge cases
 6. Suggested next improvements
 Prompt 5
+DONE
 You are an expert AI engineer, startup product designer, and senior software architect.
 Your task is to work on step 5 of building an AI tutor startup.
 Context:

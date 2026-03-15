@@ -76,14 +76,27 @@ def format_progress(stats: dict[str, Any]) -> str:
     tests = stats.get("tests_passed", 0)
     cards = stats.get("flashcards_reviewed", 0)
     streak = stats.get("daily_streak", 0)
-    body = "\n".join(
-        [
-            f"\U0001F4D8 \u0422\u0435\u043C \u0438\u0437\u0443\u0447\u0435\u043D\u043E: {topics}",
-            f"\U0001F9EA \u0422\u0435\u0441\u0442\u043E\u0432 \u043F\u0440\u043E\u0439\u0434\u0435\u043D\u043E: {tests}",
-            f"\U0001F9E0 \u0424\u043B\u044D\u0448\u043A\u0430\u0440\u0442 \u043F\u0440\u043E\u0441\u043C\u043E\u0442\u0440\u0435\u043D\u043E: {cards}",
-            f"\U0001F525 \u0414\u043D\u0435\u0432\u043D\u043E\u0439 \u0441\u0442\u0440\u0438\u043A: {streak}",
-        ]
-    )
+    last_topic = stats.get("last_topic")
+    last_stage = stats.get("last_stage")
+    stage_map = {
+        "lesson": "\u0423\u0440\u043e\u043a",
+        "flashcards": "\u041a\u0430\u0440\u0442\u043e\u0447\u043a\u0438",
+        "test": "\u0422\u0435\u0441\u0442",
+        "practice": "\u041f\u0440\u0430\u043a\u0442\u0438\u043a\u0430",
+        "done": "\u0417\u0430\u0432\u0435\u0440\u0448\u0435\u043d\u043e",
+    }
+    body_lines = [
+        f"\U0001F4D8 \u0422\u0435\u043C \u0438\u0437\u0443\u0447\u0435\u043D\u043E: {topics}",
+        f"\U0001F9EA \u0422\u0435\u0441\u0442\u043E\u0432 \u043F\u0440\u043E\u0439\u0434\u0435\u043D\u043E: {tests}",
+        f"\U0001F9E0 \u0424\u043B\u044D\u0448\u043A\u0430\u0440\u0442 \u043F\u0440\u043E\u0441\u043C\u043E\u0442\u0440\u0435\u043D\u043E: {cards}",
+        f"\U0001F525 \u0414\u043D\u0435\u0432\u043D\u043E\u0439 \u0441\u0442\u0440\u0438\u043A: {streak}",
+    ]
+    if last_topic:
+        body_lines.append(f"\U0001F4CC \u041F\u043E\u0441\u043B\u0435\u0434\u043D\u044F\u044F \u0442\u0435\u043C\u0430: {last_topic}")
+    if last_stage:
+        stage_label = stage_map.get(str(last_stage), str(last_stage))
+        body_lines.append(f"\U0001F9ED \u041F\u043E\u0441\u043B\u0435\u0434\u043D\u0438\u0439 \u044D\u0442\u0430\u043F: {stage_label}")
+    body = "\n".join(body_lines)
     return f"{title}\n\n{body}"
 
 
