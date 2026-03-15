@@ -9,7 +9,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 
 from bot.learning_engine.engine import LearningEngine
 from bot.ui.formatting import SEPARATOR, format_progress
-from bot.ui.keyboards import BTN_HELP, create_main_menu, create_progress_keyboard
+from bot.ui.keyboards import BTN_HELP, BTN_SUPPORT, create_main_menu, create_progress_keyboard
 from bot.utils.locks import UserLockManager
 
 logger = logging.getLogger(__name__)
@@ -112,6 +112,14 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
 
     @router.message(Command("support"))
     async def support_handler(message: Message, state: FSMContext) -> None:
+        async with await lock_manager.get(message.from_user.id):
+            if support_url:
+                await message.answer(SUPPORT_TEXT, reply_markup=_build_help_keyboard(support_url))
+            else:
+                await message.answer(SUPPORT_MISSING_TEXT)
+
+    @router.message(F.text == BTN_SUPPORT)
+    async def support_button_handler(message: Message, state: FSMContext) -> None:
         async with await lock_manager.get(message.from_user.id):
             if support_url:
                 await message.answer(SUPPORT_TEXT, reply_markup=_build_help_keyboard(support_url))

@@ -78,6 +78,9 @@ def create_main_menu() -> ReplyKeyboardMarkup:
             _reply_button(BTN_SETTINGS),
             _reply_button(BTN_HELP),
         ],
+        [
+            _reply_button(BTN_SUPPORT),
+        ],
     ]
     return ReplyKeyboardMarkup(
         keyboard=keyboard,
