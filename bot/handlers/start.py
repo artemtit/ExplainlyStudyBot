@@ -20,6 +20,12 @@ WELCOME_TEXT = (
     f"{SEPARATOR}\n\n"
     "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0440\u0435\u0436\u0438\u043C \u043E\u0431\u0443\u0447\u0435\u043D\u0438\u044F."
 )
+CANCEL_TEXT = (
+    f"{SEPARATOR}\n"
+    "\u2705 \u0414\u0435\u0439\u0441\u0442\u0432\u0438\u0435 \u043E\u0442\u043C\u0435\u043D\u0435\u043D\u043E\n"
+    f"{SEPARATOR}\n\n"
+    "\u0412\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u044E \u0432 \u043C\u0435\u043D\u044E."
+)
 HELP_TEXT = (
     f"{SEPARATOR}\n"
     "\u2753 \u041F\u043E\u043C\u043E\u0449\u044C\n"
@@ -56,6 +62,12 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
             await material_service.ensure_user(message.from_user.id, message.from_user.username)
             await state.clear()
             await show_main_menu(message)
+
+    @router.message(Command("cancel"))
+    async def cancel_handler(message: Message, state: FSMContext) -> None:
+        async with await lock_manager.get(message.from_user.id):
+            await state.clear()
+            await show_main_menu(message, text=CANCEL_TEXT)
 
     @router.message(Command("help"))
     async def help_handler(message: Message, state: FSMContext) -> None:
