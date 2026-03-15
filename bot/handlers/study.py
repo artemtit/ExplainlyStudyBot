@@ -325,6 +325,55 @@ async def resume_flow(
     await render_lesson(message, state, service)
 
 
+async def _ensure_lesson_material(message: Message, state: FSMContext, service: LearningEngine) -> bool:
+    data = await state.get_data()
+    material = data.get("material")
+    topic = data.get("topic")
+    if isinstance(material, dict) and isinstance(topic, str) and topic:
+        return True
+
+    resume = await service.load_resume_state(message.from_user.id)
+    if not resume:
+        await show_main_menu(message, text=format_no_resume())
+        return False
+
+    topic = str(resume.get("last_topic") or resume.get("topic") or "")
+    if not topic:
+        await show_main_menu(message, text=format_no_resume())
+        return False
+
+    try:
+        material, source = await service.get_or_generate_material(
+            user_id=message.from_user.id,
+            username=message.from_user.username,
+            topic=topic,
+        )
+    except Exception:
+        logger.exception("Failed to load material for lesson: %s", topic)
+        await message.answer(TEMP_UNAVAILABLE_TEXT)
+        return False
+
+    await state.update_data(
+        topic=topic,
+        material=material,
+        card_index=int(resume.get("card_index", 0)),
+        test_index=int(resume.get("test_index", 0)),
+        test_score=int(resume.get("test_score", 0)),
+        flash_show_answer=False,
+        practice_show_solution=False,
+        resume_stage=resume.get("last_stage"),
+        resume_card_index=int(resume.get("card_index", 0)),
+        resume_test_index=int(resume.get("test_index", 0)),
+    )
+
+    status_map = {"cache": LOADED_CACHE, "db": LOADED_DB, "llm": LOADED_NEW}
+    status_text = status_map.get(str(source))
+    if status_text:
+        await message.answer(status_text)
+
+    return True
+
+
 async def show_topic_entry(message: Message, state: FSMContext, service: LearningEngine, *, user_id: int) -> None:
     await state.set_state(StudyState.awaiting_topic)
     recent_topics = await service.get_recent_topics(user_id, limit=3)
@@ -340,6 +389,13 @@ async def show_topic_entry(message: Message, state: FSMContext, service: Learnin
 
 def build_router(material_service: LearningEngine, lock_manager: UserLockManager, free_tier_notice: bool) -> Router:
     router = Router(name="study")
+
+    @router.message(Command("lesson"))
+    async def lesson_command_handler(message: Message, state: FSMContext) -> None:
+        async with await lock_manager.get(message.from_user.id):
+            ready = await _ensure_lesson_material(message, state, material_service)
+            if ready:
+                await render_lesson(message, state, material_service)
 
     @router.message(Command("topic"))
     async def topic_command_handler(message: Message, state: FSMContext) -> None:
