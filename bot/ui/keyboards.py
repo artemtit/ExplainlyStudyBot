@@ -48,6 +48,13 @@ def _inline_url_button(text: str, url: str) -> InlineKeyboardButton:
     return InlineKeyboardButton(text=text, url=url)
 
 
+def _truncate_text(text: str, limit: int = 48) -> str:
+    clean = text.strip()
+    if len(clean) <= limit:
+        return clean
+    return f"{clean[: limit - 3]}..."
+
+
 def create_main_menu() -> ReplyKeyboardMarkup:
     keyboard = [
         [
@@ -164,4 +171,12 @@ def create_explanation_level_keyboard() -> InlineKeyboardMarkup:
         [_inline_button(BTN_EXPLAIN_NORMAL, "explain_level:normal")],
         [_inline_button(BTN_EXPLAIN_HARD, "explain_level:hard")],
     ]
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+
+def create_recent_topics_keyboard(topics: list[str]) -> InlineKeyboardMarkup:
+    keyboard: list[list[InlineKeyboardButton]] = []
+    for idx, topic in enumerate(topics):
+        label = _truncate_text(topic, limit=48)
+        keyboard.append([_inline_button(label, f"recent:pick:{idx}")])
     return InlineKeyboardMarkup(inline_keyboard=keyboard)

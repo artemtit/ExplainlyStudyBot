@@ -100,6 +100,15 @@ def format_topic_prompt() -> str:
     return f"{SEPARATOR}\n\U0001F4DA \u041D\u043E\u0432\u0430\u044F \u0442\u0435\u043C\u0430\n{SEPARATOR}\n\n\u041D\u0430\u043F\u0438\u0448\u0438\u0442\u0435 \u0442\u0435\u043C\u0443 \u043E\u0434\u043D\u0438\u043C \u043A\u043E\u0440\u043E\u0442\u043A\u0438\u043C \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u0435\u043C."
 
 
+def format_recent_topics(topics: list[str]) -> str:
+    rendered = "\n".join([f"{BULLET} {topic}" for topic in topics if topic])
+    return (
+        f"{SEPARATOR}\n\U0001F4D8 \u041D\u0435\u0434\u0430\u0432\u043D\u0438\u0435 \u0442\u0435\u043C\u044B\n{SEPARATOR}\n\n"
+        f"{rendered}\n\n"
+        "\u0412\u044B\u0431\u0435\u0440\u0438 \u0442\u0435\u043C\u0443 \u043D\u0438\u0436\u0435 \u0438\u043B\u0438 \u043D\u0430\u043F\u0438\u0448\u0438 \u0441\u0432\u043E\u044E."
+    )
+
+
 def format_explanation_prompt(topic: str) -> str:
     safe_topic = topic or "\u2014"
     return (

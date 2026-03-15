@@ -12,7 +12,14 @@ from aiogram.types import BufferedInputFile, CallbackQuery, Message
 from bot.handlers.start import show_main_menu
 from bot.learning_engine.engine import LearningEngine
 from bot.states.study_state import StudyState
-from bot.ui.formatting import SEPARATOR, format_explanation_prompt, format_lesson, format_no_resume, format_topic_prompt
+from bot.ui.formatting import (
+    SEPARATOR,
+    format_explanation_prompt,
+    format_lesson,
+    format_no_resume,
+    format_recent_topics,
+    format_topic_prompt,
+)
 from bot.ui.keyboards import (
     BTN_CONTINUE,
     BTN_FLASHCARDS,
@@ -22,6 +29,7 @@ from bot.ui.keyboards import (
     BTN_TEST,
     create_explanation_level_keyboard,
     create_lesson_keyboard,
+    create_recent_topics_keyboard,
 )
 from bot.utils.locks import UserLockManager
 from bot.utils.formula_detector import contains_formula
@@ -303,7 +311,50 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
     async def start_learning_handler(message: Message, state: FSMContext) -> None:
         async with await lock_manager.get(message.from_user.id):
             await state.set_state(StudyState.awaiting_topic)
-            await message.answer(format_topic_prompt())
+            recent_topics = await material_service.get_recent_topics(message.from_user.id, limit=3)
+            if recent_topics:
+                await state.update_data(recent_topics=recent_topics)
+                await message.answer(
+                    format_recent_topics(recent_topics),
+                    reply_markup=create_recent_topics_keyboard(recent_topics),
+                )
+            else:
+                await message.answer(format_topic_prompt())
+
+    @router.callback_query(StateFilter(StudyState.awaiting_topic), F.data.startswith("recent:pick:"))
+    async def recent_topic_handler(call: CallbackQuery, state: FSMContext) -> None:
+        async with await lock_manager.get(call.from_user.id):
+            data = await state.get_data()
+            topics = data.get("recent_topics")
+            if not isinstance(topics, list) or not topics:
+                await call.answer("\u0422\u0435\u043C\u0430 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430")
+                return
+
+            raw = (call.data or "").split(":")
+            if len(raw) < 3:
+                await call.answer("\u0422\u0435\u043C\u0430 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430")
+                return
+            try:
+                idx = int(raw[2])
+            except ValueError:
+                await call.answer("\u0422\u0435\u043C\u0430 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430")
+                return
+            if idx < 0 or idx >= len(topics):
+                await call.answer("\u0422\u0435\u043C\u0430 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430")
+                return
+
+            topic = str(topics[idx]).strip()
+            if not topic:
+                await call.answer("\u0422\u0435\u043C\u0430 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430")
+                return
+
+            await state.set_state(StudyState.awaiting_explanation_level)
+            await state.update_data(topic=topic)
+            await call.answer()
+            await call.message.answer(
+                format_explanation_prompt(topic),
+                reply_markup=create_explanation_level_keyboard(),
+            )
 
     @router.message(F.text == BTN_CONTINUE)
     async def continue_handler(message: Message, state: FSMContext) -> None:
