@@ -64,6 +64,11 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
         async with await lock_manager.get(message.from_user.id):
             await _open_profile(message, material_service, support_url)
 
+    @router.message(Command("subscribe"))
+    async def subscribe_command_handler(message: Message, state: FSMContext) -> None:
+        async with await lock_manager.get(message.from_user.id):
+            await message.answer(SUBSCRIPTION_TEXT, reply_markup=create_profile_keyboard(support_url=support_url))
+
     @router.message(F.text == BTN_PROFILE)
     async def profile_handler(message: Message, state: FSMContext) -> None:
         async with await lock_manager.get(message.from_user.id):
