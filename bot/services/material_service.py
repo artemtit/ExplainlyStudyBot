@@ -46,8 +46,8 @@ class MaterialService:
     ) -> None:
         await self._engine.save_tests_history(user_id, topic, difficulty, tests, score, total)
 
-    def update_cached_tests(self, topic: str, tests) -> None:
-        self._engine.update_cached_tests(topic, tests)
+    def update_cached_tests(self, topic: str, tests, *, difficulty: str | None = None) -> None:
+        self._engine.update_cached_tests(topic, tests, difficulty=difficulty)
 
     async def get_user_stats(self, user_id: int) -> dict[str, Any]:
         return await self._engine.get_user_stats(user_id)

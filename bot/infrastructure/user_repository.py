@@ -29,10 +29,20 @@ class SupabaseUserRepository(SupabaseRepository):
             .select("topic")
             .eq("user_id", user_id)
             .order("created_at", desc=True)
-            .limit(limit)
+            .limit(max(limit * 3, limit))
             .execute()
         )
-        return [str(item.get("topic", "")).strip() for item in (response.data or []) if item.get("topic")]
+        raw = [str(item.get("topic", "")).strip() for item in (response.data or []) if item.get("topic")]
+        seen: set[str] = set()
+        result: list[str] = []
+        for topic in raw:
+            if topic in seen:
+                continue
+            seen.add(topic)
+            result.append(topic)
+            if len(result) >= limit:
+                break
+        return result
 
     async def get_last_requests(self, user_id: int, limit: int = 3) -> list[str]:
         topics = await self._to_thread("get_last_requests", self._get_last_requests_sync, user_id, limit)

@@ -428,7 +428,7 @@ def build_router(material_service: LearningEngine, lock_manager: UserLockManager
                 review_index=0,
                 review_score=0,
             )
-            material_service.update_cached_tests(topic, tests)
+            material_service.update_cached_tests(topic, tests, difficulty=TEST_DEFAULT_DIFFICULTY)
 
             data = await state.get_data()
             await maybe_save_resume_state(

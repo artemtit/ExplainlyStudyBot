@@ -28,11 +28,11 @@ class SupabaseService:
     async def get_last_requests(self, user_id: int, limit: int = 3) -> list[str]:
         return await self._users.get_last_requests(user_id, limit=limit)
 
-    async def get_material(self, topic: str):
-        return await self._materials.get_material(topic)
+    async def get_material(self, topic: str, *, difficulty: str | None = None):
+        return await self._materials.get_material(topic, difficulty=difficulty)
 
-    async def save_material(self, topic: str, content):
-        await self._materials.save_material(topic, content)
+    async def save_material(self, topic: str, content, *, difficulty: str | None = None):
+        await self._materials.save_material(topic, content, difficulty=difficulty)
 
     async def save_tests_history(
         self,

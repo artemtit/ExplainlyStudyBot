@@ -24,19 +24,19 @@ class SupabaseMaterialRepository(SupabaseRepository):
             return None
         return response.data[0].get("content")
 
-    async def get_material(self, topic: str) -> dict[str, Any] | str | None:
-        return await self._to_thread("get_material", self._get_material_sync, topic_hash(topic))
+    async def get_material(self, topic: str, *, difficulty: str | None = None) -> dict[str, Any] | str | None:
+        return await self._to_thread("get_material", self._get_material_sync, topic_hash(topic, difficulty))
 
-    def _save_material_sync(self, topic: str, content: dict[str, Any]) -> Any:
+    def _save_material_sync(self, topic: str, content: dict[str, Any], difficulty: str | None = None) -> Any:
         payload = {
             "topic": normalize_topic(topic),
-            "topic_hash": topic_hash(topic),
+            "topic_hash": topic_hash(topic, difficulty),
             "content": content,
         }
         return self._client.table("materials").upsert(payload, on_conflict="topic_hash").execute()
 
-    async def save_material(self, topic: str, content: dict[str, Any]) -> None:
-        await self._to_thread("save_material", self._save_material_sync, topic, content)
+    async def save_material(self, topic: str, content: dict[str, Any], *, difficulty: str | None = None) -> None:
+        await self._to_thread("save_material", self._save_material_sync, topic, content, difficulty)
 
 
 __all__ = ["SupabaseMaterialRepository"]

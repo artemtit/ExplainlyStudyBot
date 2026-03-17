@@ -26,21 +26,33 @@ class ContentGenerator(Protocol):
 
 
 class MaterialCache(Protocol):
-    async def get(self, topic: str) -> dict[str, Any] | None:
+    async def get(self, topic: str, *, difficulty: str | None = None) -> dict[str, Any] | None:
         ...
 
-    async def set(self, topic: str, material: dict[str, Any]) -> None:
+    async def set(self, topic: str, material: dict[str, Any], *, difficulty: str | None = None) -> None:
         ...
 
-    async def update_tests(self, topic: str, tests: list[dict[str, Any]]) -> None:
+    async def update_tests(
+        self,
+        topic: str,
+        tests: list[dict[str, Any]],
+        *,
+        difficulty: str | None = None,
+    ) -> None:
         ...
 
 
 class MaterialRepository(Protocol):
-    async def get_material(self, topic: str) -> dict[str, Any] | str | None:
+    async def get_material(self, topic: str, *, difficulty: str | None = None) -> dict[str, Any] | str | None:
         ...
 
-    async def save_material(self, topic: str, content: dict[str, Any]) -> None:
+    async def save_material(
+        self,
+        topic: str,
+        content: dict[str, Any],
+        *,
+        difficulty: str | None = None,
+    ) -> None:
         ...
 
 

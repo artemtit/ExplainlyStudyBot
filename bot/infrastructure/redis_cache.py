@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import json
 import logging
 import os
@@ -19,6 +18,7 @@ from bot.analytics.metrics import (
     inc_redis_error,
     log_json,
 )
+from bot.utils.topic_utils import topic_hash
 
 logger = logging.getLogger(__name__)
 
@@ -75,8 +75,8 @@ class RedisMaterialCache:
             except Exception:
                 await self._reconnect()
 
-    def _key(self, topic: str) -> str:
-        digest = hashlib.sha256(topic.encode("utf-8")).hexdigest()
+    def _key(self, topic: str, difficulty: str | None = None) -> str:
+        digest = topic_hash(topic, difficulty)
         return f"{self._key_prefix}{digest}"
 
     def _make_runner(self, *, topic: str) -> Callable[[str, Callable[[], Awaitable[T]], str | None], Awaitable[T | None]]:
@@ -158,8 +158,8 @@ class RedisMaterialCache:
 
         return run
 
-    async def get(self, topic: str) -> dict[str, Any] | None:
-        key = self._key(topic)
+    async def get(self, topic: str, *, difficulty: str | None = None) -> dict[str, Any] | None:
+        key = self._key(topic, difficulty)
         run = self._make_runner(topic=topic)
 
         raw = await run("get", lambda: self._redis.get(key))
@@ -181,8 +181,8 @@ class RedisMaterialCache:
         inc_cache_hit()
         return data
 
-    async def set(self, topic: str, material: dict[str, Any]) -> None:
-        key = self._key(topic)
+    async def set(self, topic: str, material: dict[str, Any], *, difficulty: str | None = None) -> None:
+        key = self._key(topic, difficulty)
         run = self._make_runner(topic=topic)
 
         try:
@@ -194,8 +194,14 @@ class RedisMaterialCache:
 
         await run("set", lambda: self._redis.set(key, payload, ex=self._ttl_seconds))
 
-    async def update_tests(self, topic: str, tests: list[dict[str, Any]]) -> None:
-        key = self._key(topic)
+    async def update_tests(
+        self,
+        topic: str,
+        tests: list[dict[str, Any]],
+        *,
+        difficulty: str | None = None,
+    ) -> None:
+        key = self._key(topic, difficulty)
         run = self._make_runner(topic=topic)
 
         raw = await run("get", lambda: self._redis.get(key), stage="update_tests")

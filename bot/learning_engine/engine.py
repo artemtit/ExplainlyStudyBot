@@ -165,18 +165,22 @@ class LearningEngine:
         return await self._get_or_generate_material(normalized_topic, explanation_level=explanation_level)
 
     async def _get_or_generate_material(self, topic: str, *, explanation_level: str | None = None) -> tuple[dict[str, Any], str]:
-        cached = await self._load_from_cache(topic)
+        difficulty = explanation_level if explanation_level in {"simple", "normal", "hard"} else None
+        if difficulty == "normal":
+            difficulty = None
+
+        cached = await self._load_from_cache(topic, difficulty=difficulty)
         if cached is not None:
             return cached.to_dict(), "cache"
 
-        stored = await self._load_from_repo(topic)
+        stored = await self._load_from_repo(topic, difficulty=difficulty)
         if stored is not None:
-            await self._cache.set(topic, stored.to_dict())
+            await self._cache.set(topic, stored.to_dict(), difficulty=difficulty)
             return stored.to_dict(), "db"
 
         generated = await self._content.generate_material(topic, explanation_level=explanation_level)
-        await self._cache.set(topic, generated.to_dict())
-        await self._safe_save_material(topic, generated.to_dict())
+        await self._cache.set(topic, generated.to_dict(), difficulty=difficulty)
+        await self._safe_save_material(topic, generated.to_dict(), difficulty=difficulty)
         return generated.to_dict(), "llm"
 
     async def _safe_save_request(self, user_id: int, topic: str) -> None:
@@ -185,8 +189,8 @@ class LearningEngine:
         except Exception:
             _log_repo_failure("Failed to save user request", topic=topic)
 
-    async def _load_from_cache(self, topic: str):
-        cached_payload = await self._cache.get(topic)
+    async def _load_from_cache(self, topic: str, *, difficulty: str | None = None):
+        cached_payload = await self._cache.get(topic, difficulty=difficulty)
         if cached_payload is None:
             return None
         try:
@@ -195,9 +199,9 @@ class LearningEngine:
             _log_repo_warning("Cached material is invalid", topic=topic, error=str(exc))
         return None
 
-    async def _load_from_repo(self, topic: str):
+    async def _load_from_repo(self, topic: str, *, difficulty: str | None = None):
         try:
-            payload = await self._material_repo.get_material(topic)
+            payload = await self._material_repo.get_material(topic, difficulty=difficulty)
         except Exception:
             _log_repo_failure("Failed to get material from db", topic=topic)
             return None
@@ -211,9 +215,9 @@ class LearningEngine:
             _log_repo_warning("Stored material is invalid, will regenerate", topic=topic, error=str(exc))
             return None
 
-    async def _safe_save_material(self, topic: str, payload: dict[str, Any]) -> None:
+    async def _safe_save_material(self, topic: str, payload: dict[str, Any], *, difficulty: str | None = None) -> None:
         try:
-            await self._material_repo.save_material(topic, payload)
+            await self._material_repo.save_material(topic, payload, difficulty=difficulty)
         except Exception:
             _log_repo_failure("Failed to save generated material", topic=topic)
 
@@ -245,7 +249,13 @@ class LearningEngine:
         except Exception:
             _log_repo_failure("Failed to save tests history", topic=topic)
 
-    def update_cached_tests(self, topic: str, tests: list[QuizQuestion] | list[dict[str, Any]]) -> None:
+    def update_cached_tests(
+        self,
+        topic: str,
+        tests: list[QuizQuestion] | list[dict[str, Any]],
+        *,
+        difficulty: str | None = None,
+    ) -> None:
         normalized_topic = normalize_topic(topic)
         try:
             payload = self._tests_to_dicts(tests, context="update_cached_tests", topic=normalized_topic)
@@ -257,11 +267,17 @@ class LearningEngine:
         except RuntimeError:
             _log_repo_warning("No running loop for cache update", topic=normalized_topic)
             return
-        loop.create_task(self._safe_cache_update(normalized_topic, payload))
+        loop.create_task(self._safe_cache_update(normalized_topic, payload, difficulty=difficulty))
 
-    async def _safe_cache_update(self, topic: str, tests: list[dict[str, Any]]) -> None:
+    async def _safe_cache_update(
+        self,
+        topic: str,
+        tests: list[dict[str, Any]],
+        *,
+        difficulty: str | None = None,
+    ) -> None:
         try:
-            await self._cache.update_tests(topic, tests)
+            await self._cache.update_tests(topic, tests, difficulty=difficulty)
         except Exception:
             _log_repo_failure("Failed to update cached tests", topic=topic)
 
