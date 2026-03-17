@@ -44,11 +44,8 @@ class AiContentGenerator(ContentGenerator):
         if result is not None:
             return result
 
-        logger.error(
-            "LLM generation failed completely. Using fallback lesson for topic: %s",
-            topic,
-        )
-        return self._fallback_material(topic)
+        logger.error("LLM generation failed completely for topic: %s", topic)
+        raise RuntimeError("LLM generation failed")
 
     async def generate_tests(self, topic: str, difficulty: str) -> list[QuizQuestion]:
         prompt = PromptBuilder(self._registry, "tests_generation").build(topic=topic, difficulty=difficulty)
@@ -70,11 +67,8 @@ class AiContentGenerator(ContentGenerator):
         if result is not None:
             return result
 
-        logger.error(
-            "LLM tests generation failed completely. Using fallback tests for topic: %s",
-            topic,
-        )
-        return self._fallback_tests(topic)
+        logger.error("LLM tests generation failed completely for topic: %s", topic)
+        raise RuntimeError("LLM tests generation failed")
 
     @staticmethod
     def _fallback_material(topic: str) -> Material:
