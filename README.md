@@ -1,4 +1,4 @@
-# ExplainlyStudyBot
+# ExplainlyStudyBot (17.03.26 Development stopped)
 Telegram-бот для быстрого обучения: генерирует карточки, тесты, мини-урок и практическое задание по любой теме с помощью LLM.
 
 **Быстрый старт**
